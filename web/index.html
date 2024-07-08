@@ -1,0 +1,44 @@
+﻿<!doctype html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>WasmApp</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+
+        <link rel="stylesheet" href="main.css">
+
+    </head>
+    <body>
+        <canvas class="topleft" id="canvas"></canvas>
+
+        <script type="text/javascript">
+            var program;
+            var canvas = document.getElementById("canvas");
+            //make the canvas fullscreen
+            canvas.width  = window.innerWidth  * window.devicePixelRatio;
+            canvas.height = window.innerHeight * window.devicePixelRatio;
+            
+            var Module = {
+                // respond when the module has loaded
+                onRuntimeInitialized: function() {
+                    // initialize exported functions
+                    WasmWrapper.Bindings.bind_functions();
+                    
+                    // start the program
+                    program = new WasmWrapper.Program(canvas);
+                    canvas.style.width  = "100%";
+                    canvas.style.height = "100%";
+                },
+                // pls tell me yr errs
+                printErr: (msg) => {console.error(msg)},
+                //show Emscripten environment where the canvas is
+                canvas: canvas
+            };
+        </script>
+
+        <script type="text/javascript" src="%MODULE_NAME%.js"></script>
+        <script type="text/javascript" src="wrapper.js"></script>
+
+    </body>
+</html>
