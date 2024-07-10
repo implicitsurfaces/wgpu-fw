@@ -352,3 +352,11 @@ void Application::compute() {
 #endif
 
 }
+
+int main() {
+    Application app;
+	app.init();
+	app.compute();
+	app.finish();
+	return 0;
+}

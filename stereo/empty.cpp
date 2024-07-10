@@ -1,5 +1,5 @@
 // Include the C++ wrapper instead of the raw header(s)
-#define WEBGPU_CPP_IMPLEMENTATION
+// #define WEBGPU_CPP_IMPLEMENTATION
 #include <webgpu/webgpu.hpp>
 
 #include <GLFW/glfw3.h>

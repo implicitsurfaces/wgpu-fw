@@ -4,7 +4,7 @@ namespace stereo {
 
 constexpr const char* MIP_SHADER_SRC = R"(
 @group(0) @binding(0) var previous_mip: texture_2d<f32>;
-@group(0) @binding(1) var current_mip: texture_storage_2d<rgba8unorm,write>;
+@group(0) @binding(1) var current_mip: texture_storage_2d<bgra8unorm,write>;
 
 @compute @workgroup_size(8, 8)
 fn compute_mipmap(@builtin(global_invocation_id) id: vec3<u32>) {
