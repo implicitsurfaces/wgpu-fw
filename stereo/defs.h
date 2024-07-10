@@ -1,6 +1,7 @@
 #pragma once
 
-#define WEBGPU_BACKEND_WGPU 1
+// use webgpu backend:
+#include <stereo/backend_def.h>
 
 #include <cstddef>
 #include <limits>
