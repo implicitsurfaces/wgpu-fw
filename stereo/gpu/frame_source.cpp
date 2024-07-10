@@ -4,6 +4,24 @@ namespace stereo {
 
 FrameSource::FrameSource() {}
 
+FrameSource::FrameSource(const FrameSource& other):
+    source     (other.source),
+    res        (other.res),
+    src_texture(other.src_texture),
+    mip        (other.mip)
+{
+    src_texture.reference();
+}
+
+FrameSource::FrameSource(FrameSource&& other):
+    source     (std::move(other.source)),
+    res        (std::move(other.res)),
+    src_texture(std::move(other.src_texture)),
+    mip        (std::move(other.mip))
+{
+    other.src_texture = nullptr;
+}
+
 FrameSource::FrameSource(
     CaptureRef source,
     MipGenerator& mip_gen,
@@ -39,6 +57,25 @@ FrameSource::~FrameSource() {
         src_texture.destroy();
         src_texture.release();
     }
+}
+
+FrameSource& FrameSource::operator=(const FrameSource& other) {
+    source = other.source;
+    res    = other.res;
+    wgpu::Texture other_tex = other.src_texture;
+    other_tex.reference();
+    src_texture.release();
+    src_texture = other_tex;
+    mip    = other.mip;
+    return *this;
+}
+
+FrameSource& FrameSource::operator=(FrameSource&& other) {
+    std::swap(source,      other.source);
+    std::swap(res,         other.res);
+    std::swap(src_texture, other.src_texture);
+    std::swap(mip,         other.mip);
+    return *this;
 }
 
 bool FrameSource::capture() {

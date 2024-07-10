@@ -27,6 +27,8 @@ private:
 public:
     
     FrameSource();
+    FrameSource(const FrameSource& other);
+    FrameSource(FrameSource&& other);
     
     FrameSource(
         CaptureRef source,
@@ -35,6 +37,9 @@ public:
     );
     
     ~FrameSource();
+    
+    FrameSource& operator=(const FrameSource& other);
+    FrameSource& operator=(FrameSource&& other);
     
     bool capture();
     

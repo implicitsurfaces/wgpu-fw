@@ -4,7 +4,7 @@ namespace stereo {
 
 constexpr const char* MIP_SHADER_SRC = R"(
 @group(0) @binding(0) var previous_mip: texture_2d<f32>;
-@group(0) @binding(1) var current_mip: texture_storage_2d<bgra8unorm,write>;
+@group(0) @binding(1) var current_mip:  texture_storage_2d<bgra8unorm,write>;
 
 @compute @workgroup_size(8, 8)
 fn compute_mipmap(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -136,7 +136,7 @@ void MipTexture::_init(MipGenerator& generator) {
         bgd.layout     = generator._bind_group_layout;
         bgd.entryCount = 2;
         bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
-        wgpu::BindGroup bind_group = device.createBindGroup(bgd);
+        bind_group = device.createBindGroup(bgd);
         compute_pass.setBindGroup(0, bind_group, 0, nullptr);
         
         uint32_t invocations_x = res_x >> level;
@@ -145,7 +145,6 @@ void MipTexture::_init(MipGenerator& generator) {
         uint32_t buckets_x     = geom::ceil_div(invocations_x, bucket_xy);
         uint32_t buckets_y     = geom::ceil_div(invocations_y, bucket_xy);
         compute_pass.dispatchWorkgroups(buckets_x, buckets_y, 1);
-        wgpuBindGroupRelease(bind_group);
     }
     compute_pass.end();
     commands = encoder.finish(wgpu::CommandBufferDescriptor{});
@@ -159,8 +158,9 @@ void MipTexture::_release() {
         view.release();
     }
     views.clear();
-    if (texture) texture.release();
-    if (device)  device.release();
+    if (texture)    texture.release();
+    if (bind_group) bind_group.release();
+    if (device)     device.release();
 }
 
 

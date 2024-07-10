@@ -6,9 +6,10 @@ struct MipGenerator;
 
 struct MipTexture {
     
-    wgpu::Device                   device   = nullptr;
-    wgpu::Texture                  texture  = nullptr;
-    wgpu::CommandBuffer            commands = nullptr;
+    wgpu::Device                   device     = nullptr;
+    wgpu::Texture                  texture    = nullptr;
+    wgpu::CommandBuffer            commands   = nullptr;
+    wgpu::BindGroup                bind_group = nullptr;
     std::vector<wgpu::TextureView> views;
     
     friend struct MipGenerator;
