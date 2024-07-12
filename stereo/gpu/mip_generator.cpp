@@ -1,4 +1,5 @@
 #include <stereo/gpu/mip_generator.h>
+#include <stereo/gpu/shader.h>
 
 namespace stereo {
 
@@ -201,7 +202,7 @@ void MipGenerator::_init() {
     _bind_group_layout = _device.createBindGroupLayout(layout_descriptor);
     
     // load the shader + build its pipeline
-    wgpu::ShaderModule compute_shader_module = _load_shader_module();
+    wgpu::ShaderModule compute_shader_module = shader_from_str(_device, MIP_SHADER_SRC);
     wgpu::PipelineLayoutDescriptor pipeline_layout_descriptor;
     pipeline_layout_descriptor.bindGroupLayoutCount = 1;
     pipeline_layout_descriptor.bindGroupLayouts     = (WGPUBindGroupLayout*) &_bind_group_layout;
@@ -219,19 +220,6 @@ void MipGenerator::_init() {
 void MipGenerator::_release() {
     _bind_group_layout.release();
     _pipeline.release();
-}
-
-wgpu::ShaderModule MipGenerator::_load_shader_module() {
-    wgpu::ShaderModuleWGSLDescriptor shader_code {};
-	shader_code.chain.next = nullptr;
-	shader_code.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
-    
-	wgpu::ShaderModuleDescriptor shader_module {};
-	shader_module.nextInChain = &shader_code.chain;
-	shader_code.code = MIP_SHADER_SRC;
-	shader_module.hintCount = 0;
-	shader_module.hints = nullptr;
-	return _device.createShaderModule(shader_module);
 }
 
 wgpu::Device MipGenerator::get_device() {

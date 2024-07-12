@@ -47,7 +47,6 @@ private:
     
     void _init();
     void _release();
-    wgpu::ShaderModule _load_shader_module();
     
 public:
     

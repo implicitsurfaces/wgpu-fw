@@ -10,7 +10,6 @@ using namespace std::chrono_literals;
 
 #define RUN_ONCE 0
 
-// todo: lead shaders from file for faster iteration speed
 // todo: mip generation probably does not handle edges correctly
 
 const char* WGSL_SHD_SRC = R"(
