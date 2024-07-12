@@ -203,6 +203,7 @@ void MipGenerator::_init() {
     
     // load the shader + build its pipeline
     wgpu::ShaderModule compute_shader_module = shader_from_str(_device, MIP_SHADER_SRC);
+    
     wgpu::PipelineLayoutDescriptor pipeline_layout_descriptor;
     pipeline_layout_descriptor.bindGroupLayoutCount = 1;
     pipeline_layout_descriptor.bindGroupLayouts     = (WGPUBindGroupLayout*) &_bind_group_layout;
