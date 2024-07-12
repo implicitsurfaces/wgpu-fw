@@ -99,7 +99,6 @@ static bool _debug_image(vec2ui res, std::vector<uint8_t>& data) {
 }
 
 bool FrameSource::capture() {
-    constexpr size_t n_channels = 4;
     vec2ui new_cap_dims = capture_res(source);
     if (new_cap_dims != res) {
         res = new_cap_dims;
@@ -107,7 +106,9 @@ bool FrameSource::capture() {
         std::abort();
     }
     // wrap the backing buffer + fill it with capture data
-    _capture_buffer.resize(n_channels * res.x * res.y);
+    size_t pixels = res.x * res.y;
+    if (pixels == 0) return false;
+    _capture_buffer.resize(4 * pixels);
     cv::Mat frame {
         (int) res.y,
         (int) res.x,
@@ -115,6 +116,16 @@ bool FrameSource::capture() {
         _capture_buffer.data()
     };
     bool did_read = source->read(frame);
+    // the capture data is three channel. but webgpu only supports four channel.
+    // repack the data.
+    for (int64_t i = pixels - 1; i >= 0; --i) {
+        size_t src = 3 * i;
+        size_t dst = 4 * i;
+        _capture_buffer[dst + 0] = _capture_buffer[src + 0];
+        _capture_buffer[dst + 1] = _capture_buffer[src + 1];
+        _capture_buffer[dst + 2] = _capture_buffer[src + 2];
+        _capture_buffer[dst + 3] = 0xFF;
+    }
     // bool did_read = _debug_image(res, _capture_buffer);
     if (did_read) {
         wgpu::ImageCopyTexture dst_texture;
@@ -125,7 +136,7 @@ bool FrameSource::capture() {
         
         wgpu::TextureDataLayout src_layout;
         src_layout.offset       = 0;
-        src_layout.bytesPerRow  = n_channels * sizeof(uint8_t) * res.x;
+        src_layout.bytesPerRow  = 4 * sizeof(uint8_t) * res.x;
         src_layout.rowsPerImage = res.y;
         
         // upload the new data to the texture
@@ -133,7 +144,7 @@ bool FrameSource::capture() {
         queue.writeTexture(
             dst_texture,
             _capture_buffer.data(),
-            (size_t) n_channels * res.x * res.y,
+            4 * pixels,
             src_layout,
             {res.x, res.y, 1}
         );

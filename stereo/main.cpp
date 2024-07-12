@@ -1,9 +1,12 @@
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 #include <stereo/gpu/window.h>
 #include <stereo/app/solver.h>
 
 using namespace stereo;
+using namespace std::chrono_literals;
 
 #define RUN_ONCE 0
 
@@ -224,6 +227,12 @@ struct Viewer {
 
 int main(int argc, char** argv) {
     CaptureRef cap = std::make_shared<cv::VideoCapture>(0);
+    while (not cap->isOpened()) {
+        // this can happen if the host's security policy requires
+        // user approval to start the camera. wait for it to be ready.
+        cap->open(0);
+        std::this_thread::sleep_for(100ms);
+    }
     StereoSolver solver {{cap}};
     Viewer viewer {&solver};
     solver.capture(0);
