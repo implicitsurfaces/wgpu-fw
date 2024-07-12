@@ -28,22 +28,22 @@ MipTexture::MipTexture() {}
 
 MipTexture::MipTexture(wgpu::Texture texture, MipGenerator& gen):
         device(gen.get_device()),
-        texture(texture)
+        texture(texture),
+        generator(&gen)
 {
     device.reference();
     texture.reference();
-    _init(gen);
+    _init();
 }
 
 MipTexture::MipTexture(const MipTexture& other):
     device(other.device),
     texture(other.texture),
-    commands(other.commands),
+    generator(other.generator),
     views(other.views)
 {
     if (device)   device.reference();
     if (texture)  texture.reference();
-    if (commands) commands.reference();
     for (auto view : views) {
         view.reference();
     }
@@ -52,12 +52,12 @@ MipTexture::MipTexture(const MipTexture& other):
 MipTexture::MipTexture(MipTexture&& other):
     device(other.device),
     texture(other.texture),
-    commands(other.commands),
+    generator(other.generator),
     views(std::move(other.views))
 {
     other.device   = nullptr;
     other.texture  = nullptr;
-    other.commands = nullptr;
+    other.generator = nullptr;
 }
 
 MipTexture::~MipTexture() {
@@ -67,20 +67,19 @@ MipTexture::~MipTexture() {
 MipTexture& MipTexture::operator=(MipTexture&& other) {
     std::swap(device, other.device);
     std::swap(texture, other.texture);
-    std::swap(commands, other.commands);
+    std::swap(generator, other.generator);
     std::swap(views, other.views);
     return *this;
 }
 
 MipTexture& MipTexture::operator=(const MipTexture& other) {
     _release();
-    device   = other.device;
-    texture  = other.texture;
-    commands = other.commands;
-    views    = other.views;
+    device    = other.device;
+    texture   = other.texture;
+    generator = other.generator;
+    views     = other.views;
     if (device)   device.reference();
     if (texture)  texture.reference();
-    if (commands) commands.reference();
     for (auto view : views) {
         view.reference();
     }
@@ -89,11 +88,51 @@ MipTexture& MipTexture::operator=(const MipTexture& other) {
 
 void MipTexture::generate() {
     wgpu::Queue queue = device.getQueue();
+    
+    // construct the mipmap processing pass
+    wgpu::CommandEncoderDescriptor encoder_descriptor = wgpu::Default;
+    wgpu::CommandEncoder encoder = device.createCommandEncoder(encoder_descriptor);
+    
+    wgpu::ComputePassDescriptor compute_pass_descriptor;
+    wgpu::ComputePassEncoder compute_pass = encoder.beginComputePass(compute_pass_descriptor);
+    compute_pass.setPipeline(generator->_pipeline);
+    
+    uint32_t res_x = texture.getWidth();
+    uint32_t res_y = texture.getHeight();
+    wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
+    for (size_t level = 1; level < texture.getMipLevelCount(); ++level) {
+        // bind the mip level N and N + 1 texture views
+        mip_entries[0].binding = 0;
+        mip_entries[0].textureView = views[level - 1];
+        
+        mip_entries[1].binding = 1;
+        mip_entries[1].textureView = views[level];
+        
+        wgpu::BindGroupDescriptor bgd;
+        bgd.layout     = generator->_bind_group_layout;
+        bgd.entryCount = 2;
+        bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
+        bind_group     = device.createBindGroup(bgd);
+        compute_pass.setBindGroup(0, bind_group, 0, nullptr);
+        
+        uint32_t invocations_x = res_x >> level;
+        uint32_t invocations_y = res_y >> level;
+        uint32_t bucket_xy     = 8;
+        uint32_t buckets_x     = geom::ceil_div(invocations_x, bucket_xy);
+        uint32_t buckets_y     = geom::ceil_div(invocations_y, bucket_xy);
+        compute_pass.dispatchWorkgroups(buckets_x, buckets_y, 1);
+    }
+    compute_pass.end();
+    wgpu::CommandBuffer commands = encoder.finish(wgpu::CommandBufferDescriptor{});
     queue.submit(commands);
+    
+    encoder.release();
+    commands.release();
+    compute_pass.release();
     queue.release();
 }
 
-void MipTexture::_init(MipGenerator& generator) {
+void MipTexture::_init() {
     // create the mip-level views of the texture
     wgpu::TextureViewDescriptor view_descriptor;
     view_descriptor.aspect          = wgpu::TextureAspect::All;
@@ -111,49 +150,9 @@ void MipTexture::_init(MipGenerator& generator) {
         view_descriptor.baseMipLevel = level;
         views.push_back(texture.createView(view_descriptor));
     }
-    
-    // construct the mipmap processing queue
-    wgpu::Queue queue = device.getQueue();
-    wgpu::CommandEncoderDescriptor encoder_descriptor = wgpu::Default;
-    wgpu::CommandEncoder encoder = device.createCommandEncoder(encoder_descriptor);
-    
-    wgpu::ComputePassDescriptor compute_pass_descriptor;
-    wgpu::ComputePassEncoder compute_pass = encoder.beginComputePass(compute_pass_descriptor);
-    compute_pass.setPipeline(generator._pipeline);
-    
-    uint32_t res_x = texture.getWidth();
-    uint32_t res_y = texture.getHeight();
-    wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
-    for (size_t level = 1; level < texture.getMipLevelCount(); ++level) {
-        // bind the mip level N and N + 1 texture views
-        mip_entries[0].binding = 0;
-        mip_entries[0].textureView = views[level - 1];
-        
-        mip_entries[1].binding = 1;
-        mip_entries[1].textureView = views[level];
-        
-        wgpu::BindGroupDescriptor bgd;
-        bgd.layout     = generator._bind_group_layout;
-        bgd.entryCount = 2;
-        bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
-        bind_group     = device.createBindGroup(bgd);
-        compute_pass.setBindGroup(0, bind_group, 0, nullptr);
-        
-        uint32_t invocations_x = res_x >> level;
-        uint32_t invocations_y = res_y >> level;
-        uint32_t bucket_xy     = 8;
-        uint32_t buckets_x     = geom::ceil_div(invocations_x, bucket_xy);
-        uint32_t buckets_y     = geom::ceil_div(invocations_y, bucket_xy);
-        compute_pass.dispatchWorkgroups(buckets_x, buckets_y, 1);
-    }
-    compute_pass.end();
-    commands = encoder.finish(wgpu::CommandBufferDescriptor{});
-    encoder.release();
-    compute_pass.release();
 }
 
 void MipTexture::_release() {
-    if (commands) commands.release();
     for (auto view : views) {
         view.release();
     }

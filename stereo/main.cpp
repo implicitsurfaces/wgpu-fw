@@ -10,6 +10,7 @@ using namespace std::chrono_literals;
 
 #define RUN_ONCE 0
 
+// todo: lead shaders from file for faster iteration speed
 // todo: mip generation probably does not handle edges correctly
 
 const char* WGSL_SHD_SRC = R"(
@@ -37,11 +38,12 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let mip_level: i32 = 0;
+    let mip_level: i32 = 4;
     let tex_size: vec2f = vec2f(textureDimensions(tex_image, mip_level));
-    let st: vec2<u32> = vec2<u32>(in.uv * tex_size);
+    let uv = vec2f(1. - in.uv.x, 1. - in.uv.y);
+    let st: vec2<u32> = vec2<u32>(uv * tex_size);
     let c = textureLoad(tex_image, st, mip_level).rgb;
-    return vec4f(c, 1.);
+    return vec4f(pow(c, vec3f(2.2)), 1.);
 }
 
 )";
@@ -178,16 +180,17 @@ struct Viewer {
         // wgpu::TextureView tex_view = solver->frame_source(0).mip.views[0];
         
         // make a texture view
+        wgpu::Texture src_tex = solver->frame_source(0).src_texture;
         wgpu::TextureViewDescriptor view_desc = wgpu::Default;
         view_desc.aspect           = wgpu::TextureAspect::All;
         view_desc.baseArrayLayer   = 0;
         view_desc.arrayLayerCount  = 1;
         view_desc.baseMipLevel     = 0;
-        view_desc.mipLevelCount    = solver->frame_source(0).src_texture.getMipLevelCount();
+        view_desc.mipLevelCount    = src_tex.getMipLevelCount();
         view_desc.label            = "presentation texture view";
         view_desc.dimension        = wgpu::TextureViewDimension::_2D;
-        view_desc.format           = solver->frame_source(0).src_texture.getFormat();
-        wgpu::TextureView tex_view = solver->frame_source(0).src_texture.createView(view_desc);
+        view_desc.format           = src_tex.getFormat();
+        wgpu::TextureView tex_view = src_tex.createView(view_desc);
         
         wgpu::BindGroupEntry bind_entry = {};
         bind_entry.binding     = 0;
