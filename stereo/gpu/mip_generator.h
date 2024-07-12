@@ -2,6 +2,8 @@
 
 namespace stereo {
 
+// todo: this does not handle edges correctly yet
+
 struct MipGenerator;
 
 struct MipTexture {

@@ -33,7 +33,7 @@ FrameSource::FrameSource(
         _capture_buffer(capture_buffer) {}
 
 wgpu::Texture FrameSource::_create_texture(wgpu::Device device) {
-    const wgpu::TextureFormat format = wgpu::TextureFormat::BGRA8Unorm;
+    wgpu::TextureFormat format = wgpu::TextureFormat::BGRA8Unorm;
     // create the texture 
     wgpu::TextureDescriptor desc;
     desc.dimension       = wgpu::TextureDimension::_2D;
@@ -78,6 +78,26 @@ FrameSource& FrameSource::operator=(FrameSource&& other) {
     return *this;
 }
 
+static bool _debug_image(vec2ui res, std::vector<uint8_t>& data) {
+    const int n_channels = 4;
+    data.resize(res.x * res.y * n_channels);
+    for (int y = 0; y < res.y; ++y) {
+        for (int x = 0; x < res.x; ++x) {
+            int    px = y * res.x + x;
+            int     b = px * n_channels;
+            float   s = x / float(res.x);
+            float   t = y / float(res.y);
+            float   m = std::sin(50. * s * M_PI) * std::cos(25. * t * M_PI);
+            uint8_t v = 255 * (0.5 + 0.5 * m);
+            data[b + 0] = v;     // b
+            data[b + 1] = v / 2; // g
+            data[b + 2] = v / 4; // r
+            data[b + 3] = 255;   // a
+        }
+    }
+    return true;
+}
+
 bool FrameSource::capture() {
     constexpr size_t n_channels = 4;
     vec2ui new_cap_dims = capture_res(source);
@@ -87,14 +107,15 @@ bool FrameSource::capture() {
         std::abort();
     }
     // wrap the backing buffer + fill it with capture data
-    _capture_buffer.reserve(n_channels * res.x * res.y);
+    _capture_buffer.resize(n_channels * res.x * res.y);
     cv::Mat frame {
-        (int) new_cap_dims.y,
-        (int) new_cap_dims.x,
-        CV_8UC4,
+        (int) res.y,
+        (int) res.x,
+        CV_8UC3,
         _capture_buffer.data()
     };
     bool did_read = source->read(frame);
+    // bool did_read = _debug_image(res, _capture_buffer);
     if (did_read) {
         wgpu::ImageCopyTexture dst_texture;
         dst_texture.texture  = src_texture;
@@ -119,6 +140,8 @@ bool FrameSource::capture() {
         queue.release();
         // generate mipmaps from the new data
         mip.generate();
+    } else {
+        std::cerr << "NO READ :(" << std::endl;
     }
     return did_read;
 }

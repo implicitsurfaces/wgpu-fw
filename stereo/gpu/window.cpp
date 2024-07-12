@@ -34,7 +34,7 @@ void Window::init() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // todo: allow resize
-    window  = glfwCreateWindow(w, h, "Stereo", nullptr, nullptr);
+    window  = glfwCreateWindow(w / 2, h / 2, "Stereo", nullptr, nullptr);
     surface = glfwGetWGPUSurface(instance, window);
     wgpu::RequestAdapterOptions opts;
     opts.compatibleSurface = surface;

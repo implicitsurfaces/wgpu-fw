@@ -49,10 +49,6 @@ MipTexture::MipTexture(const MipTexture& other):
     }
 }
 
-MipTexture::~MipTexture() {
-    _release();
-}
-
 MipTexture::MipTexture(MipTexture&& other):
     device(other.device),
     texture(other.texture),
@@ -62,6 +58,10 @@ MipTexture::MipTexture(MipTexture&& other):
     other.device   = nullptr;
     other.texture  = nullptr;
     other.commands = nullptr;
+}
+
+MipTexture::~MipTexture() {
+    _release();
 }
 
 MipTexture& MipTexture::operator=(MipTexture&& other) {
@@ -136,7 +136,7 @@ void MipTexture::_init(MipGenerator& generator) {
         bgd.layout     = generator._bind_group_layout;
         bgd.entryCount = 2;
         bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
-        bind_group = device.createBindGroup(bgd);
+        bind_group     = device.createBindGroup(bgd);
         compute_pass.setBindGroup(0, bind_group, 0, nullptr);
         
         uint32_t invocations_x = res_x >> level;
