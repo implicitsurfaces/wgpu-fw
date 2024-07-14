@@ -123,6 +123,27 @@ void Texture::_release() {
     if (device)  device.release();
 }
 
+Texture Texture::clone(
+        std::string_view label,
+        std::optional<wgpu::TextureUsageFlags> usage,
+        std::optional<MipSetting> mip) {
+    wgpu::TextureDescriptor desc = {};
+    desc.size.width    = texture.getWidth();
+    desc.size.height   = texture.getHeight();
+    desc.size.depthOrArrayLayers = texture.getDepthOrArrayLayers();
+    desc.mipLevelCount = texture.getMipLevelCount();
+    desc.sampleCount   = texture.getSampleCount();
+    desc.dimension     = texture.getDimension();
+    desc.format        = texture.getFormat();
+    desc.usage         = usage.value_or(texture.getUsage());
+    desc.label         = label.data();
+    return {
+        device.createTexture(desc),
+        device,
+        mip.value_or(mip_setting)
+    };
+}
+
 wgpu::TextureView Texture::view_for_mip(int32_t level) {
     if (std::holds_alternative<range1i>(mip_setting.range)) {
         range1i mip_range = std::get<range1i>(mip_setting.range);

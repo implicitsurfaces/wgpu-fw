@@ -1,12 +1,28 @@
 #pragma once
 
-#include <stereo/defs.h>
+#include <stereo/gpu/texture.h>
 
 namespace stereo {
 
+struct Filter3x3;
+
+struct FilteredTexture {
+    Texture source;
+    Texture df_dx;
+    Texture df_dy;
+    Texture laplace;
+    
+    Filter3x3* filter = nullptr;
+    
+    FilteredTexture() = default;
+    FilteredTexture(wgpu::Texture source, wgpu::Device device, Filter3x3& filter);
+    
+    void process();
+};
+
 struct Filter3x3 {
     
-    static constexpr uint32_t max_mip_levels = 48;
+    static constexpr uint32_t max_mip_levels = 24;
     
 private:
     wgpu::Device          _device            = nullptr;
@@ -25,14 +41,9 @@ public:
     ~Filter3x3();
     
     Filter3x3& operator=(const Filter3x3&) = delete;
-    Filter3x3& operator=(Filter3x3&&) = delete; 
+    Filter3x3& operator=(Filter3x3&&) = delete;
     
-    void apply(
-        wgpu::Texture src,
-        wgpu::Texture df_dx_dst,
-        wgpu::Texture df_dy_dst,
-        wgpu::Texture laplace_dst
-    );
+    void apply(FilteredTexture& src);
     
     wgpu::Device device();
 };

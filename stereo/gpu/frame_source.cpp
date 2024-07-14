@@ -8,7 +8,8 @@ FrameSource::FrameSource(const FrameSource& other):
     source     (other.source),
     res        (other.res),
     src_texture(other.src_texture),
-    mip        (other.mip)
+    mip        (other.mip),
+    filtered   (other.filtered)
 {
     src_texture.reference();
 }
@@ -17,7 +18,8 @@ FrameSource::FrameSource(FrameSource&& other):
     source     (std::move(other.source)),
     res        (std::move(other.res)),
     src_texture(std::move(other.src_texture)),
-    mip        (std::move(other.mip))
+    mip        (std::move(other.mip)),
+    filtered   (std::move(other.filtered))
 {
     other.src_texture = nullptr;
 }
@@ -25,11 +27,13 @@ FrameSource::FrameSource(FrameSource&& other):
 FrameSource::FrameSource(
     CaptureRef source,
     MipGenerator& mip_gen,
+    Filter3x3& filter,
     std::vector<uint8_t>& capture_buffer):
         source(source),
         res(capture_res(source)),
         src_texture(_create_texture(mip_gen.get_device())),
         mip(mip_gen.create_mip_texture(src_texture)),
+        filtered(mip.texture.texture, mip_gen.get_device(), filter),
         _capture_buffer(capture_buffer) {}
 
 wgpu::Texture FrameSource::_create_texture(wgpu::Device device) {
@@ -66,7 +70,8 @@ FrameSource& FrameSource::operator=(const FrameSource& other) {
     other_tex.reference();
     src_texture.release();
     src_texture = other_tex;
-    mip    = other.mip;
+    mip         = other.mip;
+    filtered    = other.filtered;
     return *this;
 }
 
@@ -75,6 +80,7 @@ FrameSource& FrameSource::operator=(FrameSource&& other) {
     std::swap(res,         other.res);
     std::swap(src_texture, other.src_texture);
     std::swap(mip,         other.mip);
+    std::swap(filtered,    other.filtered);
     return *this;
 }
 
@@ -151,6 +157,8 @@ bool FrameSource::capture() {
         queue.release();
         // generate mipmaps from the new data
         mip.generate();
+        // apply the filters and fill the filtered textures
+        filtered.process();
     } else {
         std::cerr << "NO READ :(" << std::endl;
     }

@@ -1,8 +1,9 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
-#include <stereo/defs.h>
+
 #include <stereo/gpu/mip_generator.h>
+#include <stereo/gpu/filter.h>
 
 namespace stereo {
 
@@ -15,10 +16,11 @@ inline vec2ui capture_res(CaptureRef capture) {
 }
 
 struct FrameSource {
-    CaptureRef    source;
-    vec2ui        res;
-    wgpu::Texture src_texture = nullptr;
-    MipTexture    mip;
+    CaptureRef      source;
+    vec2ui          res;
+    wgpu::Texture   src_texture = nullptr;
+    MipTexture      mip;
+    FilteredTexture filtered;
 
 private:
     
@@ -33,6 +35,7 @@ public:
     FrameSource(
         CaptureRef source,
         MipGenerator& mip_gen,
+        Filter3x3& filter,
         std::vector<uint8_t>& capture_buffer
     );
     

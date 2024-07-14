@@ -47,6 +47,11 @@ struct Texture {
     
     int32_t num_mip_levels();
     range1i mip_range();
+    Texture clone(
+        std::string_view label,
+        std::optional<wgpu::TextureUsageFlags> usage=std::nullopt,
+        std::optional<MipSetting> mip_setting=std::nullopt
+    );
     
     wgpu::TextureView view_for_mip(int32_t level);
     wgpu::TextureView view_for_mip(MipLevels level);

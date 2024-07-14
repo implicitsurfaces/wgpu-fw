@@ -20,7 +20,7 @@ static std::string read_file(const char* fpath) {
     rewind(f);
     
     std::string s;
-    s.reserve(n_bytes + 1);
+    s.resize(n_bytes + 1);
     size_t n_read = fread(s.data(), 1, n_bytes, f);
     if (n_read != n_bytes) {
         std::cerr << "Incomplete file read (" << n_read << "/" << n_bytes << "): ";
@@ -34,6 +34,7 @@ static std::string read_file(const char* fpath) {
 wgpu::ShaderModule shader_from_file(wgpu::Device device, const char* fpath) {
     std::string src = read_file(fpath);
     if (src.empty()) {
+        std::cerr << "empty shader file" << std::endl;
         return nullptr;
     }
     return shader_from_str(device, src.c_str());
