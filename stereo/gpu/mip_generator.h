@@ -1,4 +1,4 @@
-#include <stereo/defs.h>
+#include <stereo/gpu/texture.h>
 
 namespace stereo {
 
@@ -8,11 +8,9 @@ struct MipGenerator;
 
 struct MipTexture {
     
-    wgpu::Device                   device     = nullptr;
-    wgpu::Texture                  texture    = nullptr;
-    wgpu::BindGroup                bind_group = nullptr;
-    MipGenerator*                  generator  = nullptr;
-    std::vector<wgpu::TextureView> views;
+    Texture texture;
+    std::vector<wgpu::BindGroup> bind_groups;
+    MipGenerator* generator  = nullptr;
     
     friend struct MipGenerator;
     

@@ -140,7 +140,7 @@ bool FrameSource::capture() {
         src_layout.rowsPerImage = res.y;
         
         // upload the new data to the texture
-        wgpu::Queue queue = mip.device.getQueue();
+        wgpu::Queue queue = mip.texture.device.getQueue();
         queue.writeTexture(
             dst_texture,
             _capture_buffer.data(),

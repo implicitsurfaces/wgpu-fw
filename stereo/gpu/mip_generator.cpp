@@ -28,37 +28,35 @@ fn compute_mipmap(@builtin(global_invocation_id) id: vec3<u32>) {
 MipTexture::MipTexture() {}
 
 MipTexture::MipTexture(wgpu::Texture texture, MipGenerator& gen):
-        device(gen.get_device()),
-        texture(texture),
+        texture(
+            texture,
+            gen.get_device(), 
+            {
+                .view_type = MipViews::Multiple,
+                .range     = MipLevels::All
+            }
+        ),
         generator(&gen)
 {
-    device.reference();
-    texture.reference();
     _init();
 }
 
 MipTexture::MipTexture(const MipTexture& other):
-    device(other.device),
     texture(other.texture),
-    generator(other.generator),
-    views(other.views)
+    bind_groups(other.bind_groups),
+    generator(other.generator)
 {
-    if (device)   device.reference();
-    if (texture)  texture.reference();
-    for (auto view : views) {
-        view.reference();
+    for (auto bg : bind_groups) {
+        bg.reference();
     }
 }
 
 MipTexture::MipTexture(MipTexture&& other):
-    device(other.device),
-    texture(other.texture),
-    generator(other.generator),
-    views(std::move(other.views))
+    texture(std::move(other.texture)),
+    bind_groups(other.bind_groups),
+    generator(other.generator)
 {
-    other.device   = nullptr;
-    other.texture  = nullptr;
-    other.generator = nullptr;
+    other.bind_groups.clear();
 }
 
 MipTexture::~MipTexture() {
@@ -66,56 +64,37 @@ MipTexture::~MipTexture() {
 }
 
 MipTexture& MipTexture::operator=(MipTexture&& other) {
-    std::swap(device, other.device);
     std::swap(texture, other.texture);
+    std::swap(bind_groups, other.bind_groups);
     std::swap(generator, other.generator);
-    std::swap(views, other.views);
     return *this;
 }
 
 MipTexture& MipTexture::operator=(const MipTexture& other) {
     _release();
-    device    = other.device;
     texture   = other.texture;
     generator = other.generator;
-    views     = other.views;
-    if (device)   device.reference();
-    if (texture)  texture.reference();
-    for (auto view : views) {
-        view.reference();
+    for (auto bg : bind_groups) {
+        bg.reference();
     }
     return *this;
 }
 
 void MipTexture::generate() {
-    wgpu::Queue queue = device.getQueue();
+    wgpu::Queue queue = texture.device.getQueue();
     
     // construct the mipmap processing pass
     wgpu::CommandEncoderDescriptor encoder_descriptor = wgpu::Default;
-    wgpu::CommandEncoder encoder = device.createCommandEncoder(encoder_descriptor);
+    wgpu::CommandEncoder encoder = texture.device.createCommandEncoder(encoder_descriptor);
     
     wgpu::ComputePassDescriptor compute_pass_descriptor;
     wgpu::ComputePassEncoder compute_pass = encoder.beginComputePass(compute_pass_descriptor);
     compute_pass.setPipeline(generator->_pipeline);
     
-    uint32_t res_x = texture.getWidth();
-    uint32_t res_y = texture.getHeight();
-    wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
-    for (size_t level = 1; level < texture.getMipLevelCount(); ++level) {
-        // bind the mip level N and N + 1 texture views
-        mip_entries[0].binding = 0;
-        mip_entries[0].textureView = views[level - 1];
-        
-        mip_entries[1].binding = 1;
-        mip_entries[1].textureView = views[level];
-        
-        wgpu::BindGroupDescriptor bgd;
-        bgd.layout     = generator->_bind_group_layout;
-        bgd.entryCount = 2;
-        bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
-        bind_group     = device.createBindGroup(bgd);
-        compute_pass.setBindGroup(0, bind_group, 0, nullptr);
-        
+    uint32_t res_x = texture.texture.getWidth();
+    uint32_t res_y = texture.texture.getHeight();
+    for (size_t level = 1; level < texture.texture.getMipLevelCount(); ++level) {
+        compute_pass.setBindGroup(0, bind_groups[level - 1], 0, nullptr);
         uint32_t invocations_x = res_x >> level;
         uint32_t invocations_y = res_y >> level;
         uint32_t bucket_xy     = 8;
@@ -134,33 +113,30 @@ void MipTexture::generate() {
 }
 
 void MipTexture::_init() {
-    // create the mip-level views of the texture
-    wgpu::TextureViewDescriptor view_descriptor;
-    view_descriptor.aspect          = wgpu::TextureAspect::All;
-    view_descriptor.baseArrayLayer  = 0;
-    view_descriptor.arrayLayerCount = 1;
-    view_descriptor.dimension       = wgpu::TextureViewDimension::_2D;
-    view_descriptor.format          = texture.getFormat();
-    view_descriptor.mipLevelCount   = 1; // each view looks into only ONE mip level
-    
-    size_t mip_levels = texture.getMipLevelCount();
-    views.reserve(mip_levels);
-    for (size_t level = 0; level < mip_levels; ++level) {
-        std::string label = "frame source view (mip = " + std::to_string(level) + ")";
-        view_descriptor.label = label.c_str();
-        view_descriptor.baseMipLevel = level;
-        views.push_back(texture.createView(view_descriptor));
+    // create + store bind groups for each mip level
+    size_t mip_levels = texture.texture.getMipLevelCount();
+    wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
+    for (size_t level = 1; level < mip_levels; ++level) {
+        // bind the mip level N and N + 1 texture views
+        mip_entries[0].binding = 0;
+        mip_entries[0].textureView = texture.views[level - 1];
+        
+        mip_entries[1].binding = 1;
+        mip_entries[1].textureView = texture.views[level];
+        
+        wgpu::BindGroupDescriptor bgd;
+        bgd.layout     = generator->_bind_group_layout;
+        bgd.entryCount = 2;
+        bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
+        bind_groups.push_back(texture.device.createBindGroup(bgd));
     }
 }
 
 void MipTexture::_release() {
-    for (auto view : views) {
-        view.release();
+    for (auto bg : bind_groups) {
+        bg.release();
     }
-    views.clear();
-    if (texture)    texture.release();
-    if (bind_group) bind_group.release();
-    if (device)     device.release();
+    bind_groups.clear();
 }
 
 
