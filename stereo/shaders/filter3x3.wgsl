@@ -48,7 +48,9 @@ fn laplace(m: array<vec3f,9>) -> vec3f {
 fn filter_main(@builtin(global_invocation_id) id: vec3<u32>) {
     fill_window(id.xy);
     var dx_dy = sobel_feldman(src_texels);
-    textureStore(df_dx_tex,   id.xy, vec4<f32>(dx_dy.dx, 1.));
-    textureStore(df_dy_tex,   id.xy, vec4<f32>(dx_dy.dy, 1.));
-    textureStore(laplace_tex, id.xy, vec4<f32>(laplace(src_texels), 1.));
+    var a: f32 = 1. / f32(1u << u32(mip_level));
+    var b: f32 = 16. * a;
+    textureStore(df_dx_tex,   id.xy, a * vec4<f32>(dx_dy.dx, 1.));
+    textureStore(df_dy_tex,   id.xy, a * vec4<f32>(dx_dy.dy, 1.));
+    textureStore(laplace_tex, id.xy, b * vec4<f32>(laplace(src_texels), 1.));
 }

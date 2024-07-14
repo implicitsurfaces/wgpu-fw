@@ -179,7 +179,7 @@ struct Viewer {
         // wgpu::TextureView tex_view = solver->frame_source(0).mip.views[0];
         
         // make a texture view
-        wgpu::Texture src_tex = solver->frame_source(0).src_texture;
+        wgpu::Texture src_tex = solver->frame_source(0).filtered.laplace.texture;
         wgpu::TextureViewDescriptor view_desc = wgpu::Default;
         view_desc.aspect           = wgpu::TextureAspect::All;
         view_desc.baseArrayLayer   = 0;
