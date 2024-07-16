@@ -21,6 +21,8 @@
 
 #include <webgpu/webgpu.hpp>
 
+#define MIN_UNIFORM_PADDING_BYTES 256
+
 using namespace geom;
 
 

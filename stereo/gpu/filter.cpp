@@ -3,8 +3,6 @@
 
 namespace stereo {
 
-#define MIN_UNIFORM_PADDING_BYTES 256
-
 /*************************
  * FilteredTexture       *
  *************************/
