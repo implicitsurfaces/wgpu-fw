@@ -1,10 +1,14 @@
 struct ImageFeature {
-    depth:    u32,
-    parent:   u32,
-    a_xy:     vec2u,
-    b_xy:     vec2u,
-    offs:     vec2f,
-    sqrt_cov: mat3x3f,
+    st:       vec2f,
+    sqrt_cov: mat2x2f,
+    basis:    mat2x2f,
+}
+
+struct FeaturePair {
+    depth:  u32,
+    parent: u32,
+    a:      ImageFeature,
+    b:      ImageFeature,
 }
 
 struct SampleWindow {
@@ -19,12 +23,13 @@ struct WindowPair {
 }
 
 struct MatcherUniforms {
-    tree_depth:     i32,
-    feature_offset: u32,
-    refine_parent:  bool,
+    tree_depth:          i32,
+    feature_offset:      u32,
+    refine_parent:       bool,
+    correlation_samples: i32,
 }
 
-@group(0) @binding(0) var<storage,read> features:      array<ImageFeature>;
+@group(0) @binding(0) var<storage,read> features:      array<FeaturePair>;
 @group(0) @binding(1) var tex_a:                       texture_2d<f32>;
 @group(0) @binding(2) var tex_b:                       texture_2d<f32>;
 @group(0) @binding(3) var<storage,write> window_pairs: array<WindowPair>;
@@ -39,10 +44,10 @@ fn main(
     if (feature_idx >= u32(features.length())) {
         return;
     }
-    let feature: ImageFeature = features[feature_idx];
+    let feature: FeaturePair = features[feature_idx];
     let xy: vec2u = local_id.xy
-    let coords_a: vec2u = feature.a_xy + xy;
-    let coords_b: vec2u = feature.b_xy + xy;
+    let coords_a: vec2u = vec2u(feature.a.st) + xy;
+    let coords_b: vec2u = vec2u(feature.b.st) + xy;
     let a: vec3f = textureLoad(tex_a, coords_a, uniforms.tree_depth).rgb;
     let b: vec3f = textureLoad(tex_b, coords_b, uniforms.tree_depth).rgb;
     

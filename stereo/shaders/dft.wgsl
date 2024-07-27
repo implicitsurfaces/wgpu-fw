@@ -1,3 +1,7 @@
+// dft.wgsl
+// Functions for computing the discrete Fourier transform and cross-correlation
+// of a 4x4 discrete (complex) signal.
+
 struct cmat4 {
     real: mat4x4f,
     imag: mat4x4f,

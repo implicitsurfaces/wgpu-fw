@@ -1,0 +1,22 @@
+things to tier?
+
+- resolution
+- number of tracked features
+- "oriented" features
+- more than two eyes
+- client predictor code
+  - in img space or world space
+- adaptive camera estimation
+- texture bit depth
+
+need to implement:
+
+x load camera image into texture
+x mipmap
+x filter
+- match
+  - texture sample stage
+  - "align" stage
+
+- expr template for texture bit depth;
+  have everything plug in
