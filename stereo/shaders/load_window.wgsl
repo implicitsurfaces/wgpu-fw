@@ -5,6 +5,7 @@ struct ImageFeature {
 }
 
 struct FeaturePair {
+    id:     u32,
     depth:  u32,
     parent: u32,
     a:      ImageFeature,
@@ -23,10 +24,10 @@ struct WindowPair {
 }
 
 struct MatcherUniforms {
-    tree_depth:          i32,
-    feature_offset:      u32,
-    refine_parent:       bool,
-    correlation_samples: i32,
+    tree_depth:       i32,
+    feature_offset:   u32,
+    refine_parent:    bool,
+    branching_factor: i32,
 }
 
 @group(0) @binding(0) var<storage,read> features:      array<FeaturePair>;

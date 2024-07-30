@@ -3,28 +3,7 @@
 // to a running correlogram.
 
 // #include "dft.wgsl"
-
-struct SampleWindow {
-    r: mat4x4f,
-    g: mat4x4f,
-    b: mat4x4f,
-}
-
-struct WindowPair {
-    a: SampleWindow,
-    b: SampleWindow,
-}
-
-struct CorrelationWindow {
-    correlation: mat4x4,
-}
-
-struct MatcherUniforms {
-    tree_depth:          i32,
-    feature_offset:      u32,
-    refine_parent:       bool,
-    correlation_samples: i32,
-}
+// #include "structs.wgsl"
 
 @group(0) @binding(0) var<storage,read>       window_pairs:        array<WindowPair>;
 @group(0) @binding(1) var<storage,read_write> correlation_windows: array<CorrelationWindow>;
