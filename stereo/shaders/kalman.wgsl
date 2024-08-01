@@ -1,3 +1,5 @@
+// #include "inverse.wgsl"
+
 const Tau: f32 = 6.28318530717958647692;
 
 
@@ -8,6 +10,11 @@ const Tau: f32 = 6.28318530717958647692;
 struct Estimate2D {
     x:          vec2f,
     sqrt_sigma: mat2x2f,
+}
+
+struct Estimate3D {
+    x:          vec3f,
+    sqrt_sigma: mat3x3f,
 }
 
 struct QuantifiedEstimate2D {
@@ -26,6 +33,53 @@ fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
     return (m + mat2x2f(s)) / t;
 }
 
+fn sqrt_3x3(m: mat3x3f) -> mat3x3f {
+    // cholesky algorithm
+    // todo: unroll this. for now, hope the compiler is smrt
+    let L: mat3x3f = mat3x3f(0.);
+    for (let i: u32 = 0; i < 3; i++) {
+        for (let j: u32 = 0; j <= i; j++) {
+            let sum: f32 = 0;
+            if j == i {
+                for (let k: u32 = 0; k < j; k++) {
+                    let Lkj: f32 = L[k][j];
+                    sum += Lkj * Lkj;
+                }
+                L[j][j] = sqrt(m[j][j] - sum);
+            } else {
+                for (let k: u32 = 0; k < j; k++) {
+                    sum += L[k][i] * L[k][j];
+                }
+                L[j][i] = (m[j][i] - sum) / L[j][j];
+            }
+        }
+    }
+    return L;
+}
+
+fn sqrt_4x4(m: mat4x4f) -> mat4x4f {
+    // cholesky algorithm
+    let L: mat4x4f = mat4x4f(0.);
+    for (let i: u32 = 0; i < 4; i++) {
+        for (let j: u32 = 0; j <= i; j++) {
+            let sum: f32 = 0.;
+            if j == i {
+                for (let k: u32 = 0; k < j; k++) {
+                    let Lkj: f32 = L[k][j];
+                    sum += Lkj * Lkj;
+                }
+                L[j][j] = sqrt(m[j][j] - sum);
+            } else {
+                for (let k: u32 = 0; k < j; k++) {
+                    sum += L[k][i] * L[k][j];
+                }
+                L[j][i] = (m[j][i] - sum) / L[j][j];
+            }
+        }
+    }
+    return L;
+}
+
 fn transform(a: Estimate2D, dx: vec2f, F: mat2x2f) -> Estimate2D {
     return Estimate2D(
         dx + a.x,
@@ -36,7 +90,7 @@ fn transform(a: Estimate2D, dx: vec2f, F: mat2x2f) -> Estimate2D {
 fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
     let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
     let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
-    let K: mat2x2f = S0 * (S0 + S1).inverse();
+    let K: mat2x2f = S0 * inverse(S0 + S1);
     let J: mat2x2f = mat2x2f(1.) - K;
     let L: mat2x2f = sqrt_2x2(J);
     
@@ -46,10 +100,31 @@ fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
     );
 }
 
+fn update_unproject_2d_3d(
+        prior:       Estimate3D,
+        measurement: Estimate2D,
+        H:           mat3x2f) -> Estimate3D
+{
+    let P:  mat3x3f = prior.sqrt_sigma       * transpose(prior.sqrt_sigma);
+    let R:  mat2x2f = measurement.sqrt_sigma * transpose(measurement.sqrt_sigma);
+    let HT: mat2x3f = transpose(H);
+    let S0: mat2x2f = inverse(dot(H, P * HT) + R);
+    let K:  mat3x3f = P * HT * S0;
+    let J:  mat3x3f = mat3x3f(1.) - K * H;
+    
+    let P1: mat3x3f = sqrt_3x3(J * P);
+    let mu: vec3f   = prior.x + K * (measurement.x - dot(H, prior.x));
+    
+    return Estimate3D(
+        mu,
+        P1
+    );
+}
+
 fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
     let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
     let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
-    let s01_inv: mat2x2f = (S0 + S1).inverse();
+    let s01_inv: mat2x2f = inverse(S0 + S1);
     let K: mat2x2f = S0 * s01_inv;
     let J: mat2x2f = mat2x2f(1.) - K;
     let L: mat2x2f = sqrt_2x2(J);

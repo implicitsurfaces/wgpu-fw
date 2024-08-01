@@ -1,3 +1,6 @@
+// structs.wgsl
+// common structs across multiple stages of stereo fusion
+
 struct CorrelationWindow {
     correlation: mat4x4,
 }

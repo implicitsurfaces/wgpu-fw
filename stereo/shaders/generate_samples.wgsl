@@ -25,27 +25,31 @@
 //     how to do this without redundant computation
 // - we're maintaining a new invariant: all image feature-pairs
 //   in a tree back-project to a single "coherent" feature in _scene space_
-// - we'll update the parent only at this step
-//   - we'll generate N samples from the correllogram, and N from the (sigma pts?)
+// x we'll update the parent only at this step
+//   x we'll generate N samples from the correllogram, and N from the (sigma pts?)
 //     of the estimate covariance
-//   - we'll get the joint pr for each sample and treat that as a weighted
+//   x we'll get the joint pr for each sample and treat that as a weighted
 //     ptcloud for a new mean and covariance.
 //     - bc the importance sampled distro already has its own "weighting",
 //       it's the other distro's pdf that is the weight. double check this.
-//   - we could factor sample generation across cores and then do the aggregation
+//   ~ we could factor sample generation across cores and then do the aggregation
 //     quickly at the end
-// - the covariance of the _disparity_ in correllogram space comes by subtracting
+//     > there is enough unique "end stuff" that this should get its own stage
+// x the covariance of the _disparity_ in correllogram space comes by subtracting
 //   the means of the two features, which are defined to be at the center of the window,
 //   so it's just the sum of the respective covariances.
-// - the image features get the symmetric update we figured out below
-// - the distributions of the child features should be considered as relative
+// x the image features get the symmetric update we figured out below
+// x the distributions of the child features should be considered as relative
 //   to their parent. we need this so that children recieve updated
 //   info about their positioning extracted from the coarser level.
 //   - this update needs to happen BEFORE image sampling, so
 //     likely as a final step when the parent is updated.
-//   - this could be a very light "parent buffer" of v2ds
+//   ~ this could be a very light "parent buffer" of v2ds
+//     > no, bc of the above requirement that this happen before sampling.
+//       the fuse stage is the last stage to touch a Feature before it gets sampled.
 //   - if there were a window space update, this would also propagate here
-// - we can discard the "patch sampling". double check that the old algorithm
+//   > we'll unproject back to feature space, then predict children based on parent.
+// x we can discard the "patch sampling". double check that the old algorithm
 //   isn't missing some updates / bug discoveries from our latest work
 // - quality estimate is the normalization factor of the sample pool
 // > question: when and how do shitty samples get pruned?
@@ -67,36 +71,6 @@
 //     at their locations relative to the moved mean
 //   > if this gets away from us, that's a tree conditioning / process noise step
 //     make a note of this, test/observe, and address if it causes issues.
-
-struct CorrelationWindow {
-    correlation: mat4x4,
-}
-
-struct ImageFeature {
-    st:        vec2f,
-    sqrt_cov:  mat2x2f,
-    basis:     mat2x2f,
-}
-
-struct FeaturePair {
-    id:     u32,
-    depth:  u32,
-    parent: u32,
-    a:      ImageFeature,
-    b:      ImageFeature,
-}
-
-struct MatcherUniforms {
-    tree_depth:       i32,
-    feature_offset:   u32,
-    refine_parent:    bool,
-    branching_factor: i32,
-}
-
-struct WeightedSample {
-    x: vec2f,
-    w: f32,
-}
 
 struct Covariance {
     sqrt_cov:     mat2x2f,
@@ -186,7 +160,7 @@ fn main(
         let xcor_sample:    Sample = sample_interp_image(img, uniform_2d_samples[sample_id]);
         xcor_sample.st             = corr_to_displacement(xcor_sample.st);
         let pdf_xcor_at_gaus:  f32 = gauss_pdf(xcor_sample.st, cov);
-        let pdf_gaus_at_xcor:  f32 = eval_interp_image_patch(img, gaus_sample.st);
+        let pdf_gaus_at_xcor:  f32 = eval_interp_image(img, gaus_sample.st);
         dst_samples[sample_id]     = WeightedSample(xcor_sample.st, pdf_gaus_at_xcor);
         dst_samples[sample_id + 1] = WeightedSample(gaus_sample.st, pdf_xcor_at_gaus);
     }

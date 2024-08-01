@@ -124,6 +124,31 @@ fn eval_bicubic_gradient(coeffs: mat4x4f, xy: vec2f) -> vec2f {
     );
 }
 
+fn cdf_bilinear_gradient(
+    marginal_col_cdf: mat4x4f,
+    smp_x: Coordinate,
+    smp_y: Coordinate) -> vec2f
+{
+    let i:    i32 = smp_x.x;
+    let j:    i32 = smp_y.x;
+    let x:    f32 = smp_x.x_remainder;
+    let y:    f32 = smp_y.x_remainder;
+    let F_11: f32 = marginal_col_cdf[i][j];
+    let F_00: f32 = select(0., marginal_col_cdf[i - 1][j - 1], i > 0 && j > 0);
+    let F_01: f32 = select(0., marginal_col_cdf[i - 1][j    ], i > 0);
+    let F_10: f32 = select(0., marginal_col_cdf[i    ][j - 1], j > 0);
+    let dy_0: f32 = F_01;
+    let dy_1: f32 = F_11;
+    let dx_0: f32 = F_10 - F_00;
+    let dx_1: f32 = dx_0 + (F_11 - F_01);
+    
+    return mix(
+        vec2f(dx_0, dy_0),
+        vec2f(dx_1, dy_1),
+        vec2f(x, y)
+    );
+}
+
 fn cycled_bicubic(d: u32) -> mat4x4f {
     const j: vec4u          = vec4ui(0, 1, 2, 3);
     const J: array<vec4u,4> = array<vec4u,4>(
@@ -295,27 +320,24 @@ fn sample_bicubic_patch(c: mat4x4f, uv: vec2f) -> SamplePatch {
     );
 }
 
-fn cdf_bilinear_derivative(
-    marginal_col_cdf: mat4x4f,
-    smp_x: Coordinate,
-    smp_y: Coordinate) -> vec2f
-{
-    let i:    i32 = smp_x.x;
-    let j:    i32 = smp_y.x;
-    let x:    f32 = smp_x.x_remainder;
-    let y:    f32 = smp_y.x_remainder;
-    let F_11: f32 = marginal_col_cdf[i][j];
-    let F_00: f32 = select(0., marginal_col_cdf[i - 1][j - 1], i > 0 && j > 0);
-    let F_01: f32 = select(0., marginal_col_cdf[i - 1][j    ], i > 0);
-    let F_10: f32 = select(0., marginal_col_cdf[i    ][j - 1], j > 0);
-    let dy_0: f32 = F_01;
-    let dy_1: f32 = F_11;
-    let dx_0: f32 = F_10 - F_00;
-    let dx_1: f32 = dx_0 + (F_11 - F_01);
+fn sample_discrete_image(image: SampleImage, uv: vec2f) -> Coordinate2d {
+    let smp_y: Coordinate = sample_cdf_vector(image.row_cdf, uv.v);
+    let row: i32 = smp_y.x;
+    let y:   f32 = smp_y.x_remainder;
     
-    return mix(
-        vec2f(dx_0, dy_0),
-        vec2f(dx_1, dy_1),
+    // get this (interpolated) row's cdf for choosing columns
+    // (access a row as a vec3— wgsl is column-major!)
+    let mT:    mat4x4f = transpose(image.marginal_col_cdf);
+    let c1:      vec4f = mT[row];
+    let c0:      vec4f = select(vec4f(0.), mT[row - 1], row > 0);
+    let col_cdf: vec4f = mix(c0, c1, y);
+    
+    let smp_x: Coordinate = sample_cdf_vector(col_cdf, uv.u);
+    let col:   i32 = smp_x.x;
+    let x:     f32 = smp_x.x_remainder;
+    
+    return Coordinate2d(
+        vec2i(col, row),
         vec2f(x, y)
     );
 }
@@ -340,7 +362,7 @@ fn sample_discrete_image_patch(image: SampleImage, uv: vec2f) -> CoordinatePatch
     // todo: we could also get the derivative right out of smp_x, and
     //   only compute the y derivative here. if there is an issue with
     //   the derivative, we could check if they're the same.
-    let Jf:    vec2f = cdf_bilinear_derivative(image.marginal_col_cdf, smp_x, smp_y);
+    let Jf:    vec2f = cdf_bilinear_gradient(image.marginal_col_cdf, smp_x, smp_y);
     let row_max: f32 = value_or(col_cdf[3],       1.);
     let col_max: f32 = value_or(image.row_cdf[3], 1.);
     let dx_du:   f32 =         row_max / value_or(Jf.x, 1.);
@@ -353,28 +375,6 @@ fn sample_discrete_image_patch(image: SampleImage, uv: vec2f) -> CoordinatePatch
             vec2f(dx_du, dy_du),
             vec2f(dx_dv, dy_dv),
         ),
-    );
-}
-
-fn sample_discrete_image(image: SampleImage, uv: vec2f) -> Coordinate2d {
-    let smp_y: Coordinate = sample_cdf_vector(image.row_cdf, uv.v);
-    let row: i32 = smp_y.x;
-    let y:   f32 = smp_y.x_remainder;
-    
-    // get this (interpolated) row's cdf for choosing columns
-    // (access a row as a vec3— wgsl is column-major!)
-    let mT:    mat4x4f = transpose(image.marginal_col_cdf);
-    let c1:      vec4f = mT[row];
-    let c0:      vec4f = select(vec4f(0.), mT[row - 1], row > 0);
-    let col_cdf: vec4f = mix(c0, c1, y);
-    
-    let smp_x: Coordinate = sample_cdf_vector(col_cdf, uv.u);
-    let col:   i32 = smp_x.x;
-    let x:     f32 = smp_x.x_remainder;
-    
-    return Coordinate2d(
-        vec2i(col, row),
-        vec2f(x, y)
     );
 }
 
@@ -411,7 +411,7 @@ fn sample_interp_image_patch(image: SampleImage, xy: vec2f) -> SamplePatch {
     );
 }
 
-fn eval_interp_image_patch(image: SampleImage, st: vec2f) -> f32 {
+fn eval_interp_image(image: SampleImage, st: vec2f) -> f32 {
     let xy: vec2f = st * 4.;
     let ij: vec2f = min(max(vec2i(0), floor(xy)), vec2i(3));
     let bicubic_coeffs:  mat4x4f = bicubic_cell(image.image, vec2i(ij));

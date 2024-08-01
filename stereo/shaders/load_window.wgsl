@@ -1,34 +1,6 @@
-struct ImageFeature {
-    st:       vec2f,
-    sqrt_cov: mat2x2f,
-    basis:    mat2x2f,
-}
+// #include "structs.wgsl"
 
-struct FeaturePair {
-    id:     u32,
-    depth:  u32,
-    parent: u32,
-    a:      ImageFeature,
-    b:      ImageFeature,
-}
-
-struct SampleWindow {
-    r: mat4x4f,
-    g: mat4x4f,
-    b: mat4x4f,
-}
-
-struct WindowPair {
-    a: SampleWindow,
-    b: SampleWindow,
-}
-
-struct MatcherUniforms {
-    tree_depth:       i32,
-    feature_offset:   u32,
-    refine_parent:    bool,
-    branching_factor: i32,
-}
+// sample the window around each feature in a pair
 
 @group(0) @binding(0) var<storage,read> features:      array<FeaturePair>;
 @group(0) @binding(1) var tex_a:                       texture_2d<f32>;
