@@ -7,14 +7,13 @@
 
 @group(0) @binding(0) var<storage,read>       window_pairs:        array<WindowPair>;
 @group(0) @binding(1) var<storage,read_write> correlation_windows: array<CorrelationWindow>;
-@group(0) @binding(2) var<uniform>            uniforms:            MatcherUniforms;
 
 // issue: correlation is done with two channels, but we have three.
 //   do we waste a channel, or do we try to pull in a second layer for each eye?
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
-    let feature_idx: u32 = global_id.z + uniforms.feature_offset;
+    let feature_idx: u32 = global_id.z;
     if (feature_idx >= u32(features.length())) {
         return;
     }

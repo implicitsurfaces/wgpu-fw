@@ -13,9 +13,10 @@
 
 const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
 
-@group(0) @binding(0) var<storage,read>  src_features: array<FeaturePair>;
-@group(0) @binding(1) var<storage,read>  samples:      array<WeightedSample>;
-@group(0) @binding(2) var<storage,write> dst_features: array<FeaturePair>;
+// nb: each input in a different group!
+@group(0) @binding(0) var<storage,read>  samples:      array<WeightedSample>;
+@group(1) @binding(0) var<storage,read>  src_features: array<FeaturePair>;
+@group(2) @binding(0) var<storage,write> dst_features: array<FeaturePair>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {

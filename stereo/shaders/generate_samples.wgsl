@@ -103,8 +103,9 @@ const Wg_Width:     i32 = 64 / Sample_Invocations;
 const Tau:          f32 = 6.28318530717958647692;
 
 @group(0) @binding(0) var<storage,read>  correlations: array<CorrelationWindow>;
-@group(0) @binding(1) var<storage,read>  src_features: array<FeaturePair>;
-@group(0) @binding(2) var<storage,write> dst_samples:  array<WeightedSample>;
+@group(0) @binding(1) var<storage,write> dst_samples:  array<WeightedSample>;
+
+@group(1) @binding(0) var<storage,read>  src_features: array<FeaturePair>;
 
 // xy is in [0, 1]^2 -> [-1, 1]^2
 fn corr_to_displacement(xy: vec2f) -> vec2f {

@@ -26,7 +26,7 @@ fn cofac(
 {
     // a * b - c * d + e * f
     let o: vec4f = fma(e, f, fma(-c, d, a * b));
-    return o * vec4f(1., -1, 1., -1);
+    return o * vec4f(1., -1,  1., -1);
 }
 
 

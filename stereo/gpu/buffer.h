@@ -31,11 +31,11 @@ public:
     DataBuffer(
         wgpu::Device device,
         size_t size,
-        wgpu::BufferUsage usage_flags=wgpu::BufferUsage::None):
+        wgpu::BufferUsage extra_usage_flags=wgpu::BufferUsage::None):
             _device(device),
             _size(size)
     {
-        _init(usage_flags);
+        _init(extra_usage_flags);
     }
     
     DataBuffer(const Feature2DBuffer& other):
