@@ -3,10 +3,30 @@ fn det2x2(a: f32, b: f32, c: f32, d: f32) -> f32 {
     return fma(a, d, -b * c);
 }
 
+fn det2x2_v3(a: vec3f, b: vec3f, c: vec3f, d: vec3f) -> vec3f {
+    return fma(a, d, -b * c);
+}
 
-fn cofac(a: T, b: T, c: T, d: T, e: T, f: T) -> T {
+fn det2x2_v4(a: vec4f, b: vec4f, c: vec4f, d: vec4f) -> vec4f {
+    return fma(a, d, -b * c);
+}
+
+fn cofac(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32) -> f32 {
     // a * b - c * d + e * f
     fma(e, f, fma(-c, d, a * b));
+}
+
+fn cofac(
+        a: vec4f,
+        b: vec4f,
+        c: vec4f,
+        d: vec4f,
+        e: vec4f,
+        f: vec4f) -> vec4f
+{
+    // a * b - c * d + e * f
+    let o: vec4f = fma(e, f, fma(-c, d, a * b));
+    return o * vec4f(1., -1, 1., -1);
 }
 
 
@@ -31,17 +51,24 @@ fn inverse(m: mat3x3f) -> mat3x3f {
     
     return transpose(
         mat3x3f(
-            det2x2(k.z, j.z, k.y, j.y),
-            det2x2(j.z, k.z, j.x, k.x),
-            det2x2(k.y, j.y, k.x, j.x),
-        
-            det2x2(i.z, k.z, i.y, k.y),
-            det2x2(k.z, i.z, k.x, i.x),
-            det2x2(i.y, k.y, i.x, k.x),
-        
-            det2x2(j.z, i.z, j.y, i.y),
-            det2x2(i.z, j.z, i.x, j.x),
-            det2x2(j.y, i.y, j.x, i.x)
+            det2x2_v3(
+                vec3f(k.z, j.z, k.y),
+                vec3f(j.z, k.z, j.y),
+                vec3f(k.y, j.x, k.x),
+                vec3f(j.y, k.x, j.x),
+            ),
+            det2x2_v3(
+                vec3f(i.z, k.z, i.y),
+                vec3f(k.z, i.z, k.y),
+                vec3f(i.y, k.x, i.x),
+                vec3f(k.y, i.x, k.x),
+            ),
+            det2x2_v3(
+                vec3f(j.z, i.z, j.y),
+                vec3f(i.z, j.z, i.y),
+                vec3f(j.y, i.x, j.x),
+                vec3f(i.y, j.x, i.x),
+            ),
         )
     ) / det;
 }
@@ -53,55 +80,52 @@ fn inverse(m: mat4x4f) -> mat4x4f {
     let k: vec4f = m[2];
     let l: vec4f = m[3];
     
-    let s0: f32 = det2x2(i.x, j.x, i.y, j.y);
-    let s1: f32 = det2x2(i.x, k.x, i.y, k.y);
-    let s2: f32 = det2x2(i.x, l.x, i.y, l.y);
-    let s3: f32 = det2x2(j.x, k.x, j.y, k.y);
-    let s4: f32 = det2x2(j.x, l.x, j.y, l.y);
-    let s5: f32 = det2x2(k.x, l.x, k.y, l.y);
-    
-    let c0: f32 = det2x2(i.z, j.z, i.w, j.w);
-    let c1: f32 = det2x2(i.z, k.z, i.w, k.w);
-    let c2: f32 = det2x2(i.z, l.z, i.w, l.w);
-    let c3: f32 = det2x2(j.z, k.z, j.w, k.w);
-    let c4: f32 = det2x2(j.z, l.z, j.w, l.w);
-    let c5: f32 = det2x2(k.z, l.z, k.w, l.w);
+    let e0: vec4f = det2x2_v4(
+        vec4f(i.x, i.x, i.x, j.x),
+        vec4f(j.x, k.x, l.x, k.x),
+        vec4f(i.y, i.y, i.y, j.y),
+        vec4f(j.y, k.y, l.y, k.y),
+    );
+    let e1: vec4f = det2x2_v4(
+        vec4f(j.x, k.x, i.z, i.z),
+        vec4f(l.x, l.x, j.z, k.z),
+        vec4f(j.y, k.y, i.w, i.w),
+        vec4f(l.y, l.y, j.w, k.w),
+    );
+    let e2: vec4f = det2x2_v4(
+        vec4f(i.z, j.z, j.z, k.z),
+        vec4f(l.z, k.z, l.z, l.z),
+        vec4f(i.w, j.w, j.w, k.w),
+        vec4f(l.w, k.w, l.w, l.w),
+    );
     
     // we need all the cofactors above anyway, so might as well
     // use them to compute the determinant ourselves instead of
     // the hardware way
     // let det: f32 = determinant(m);
     
-    // det = s0*c5 - s1*c4 
-    //     + s3*c2 - s4*c1
-    //     + s2*c3 + s5*c0;
-    let a:   f32 = det2x2(s0, s1, c4, c5);
-    let b:   f32 = det2x2(s3, s4, c1, c2);
-    let c:   f32 = fma(s2, c3, s5 * c0);
+    // det = e0.x*e2.w - e0.y*e2.z 
+    //     + e0.w*e2.x - e1.x*e1.w
+    //     + e0.z*e2.y + e1.y*e1.z;
+    let a:   f32 = det2x2(e0.x, e0.y, e2.z, e2.w);
+    let b:   f32 = det2x2(e0.w, e1.x, e1.w, e2.x);
+    let c:   f32 = fma(e0.z, e2.y, e1.y * e1.z);
     let det: f32 = a + b + c;
     if det == 0. { return mat4x4f(0.); }
     
+    let e2we1y: vec4f = vec4f(e2.ww, e1.yy);
+    let e2ze1x: vec4f = vec4f(e2.zz, e1.xx);
+    let e2ye0w: vec4f = vec4f(e2.yy, e0.ww);
+    let e2xe0z: vec4f = vec4f(e2.xx, e0.zz);
+    let e1we0y: vec4f = vec4f(e1.ww, e0.yy);
+    let e1ze0x: vec4f = vec4f(e1.zz, e0.xx);
+    
     return transpose(
         mat4x4f(
-             cofac(j.y, c5,  k.y, c4,  l.y, c3),
-            -cofac(j.x, c5,  k.x, c4,  l.x, c3),
-             cofac(j.w, s5,  k.w, s4,  l.w, s3),
-            -cofac(j.z, s5,  k.z, s4,  l.z, s3),
-            
-            -cofac(i.y, c5,  k.y, c2,  l.y, c1),
-             cofac(i.x, c5,  k.x, c2,  l.x, c1),
-            -cofac(i.w, s5,  k.w, s2,  l.w, s1),
-             cofac(i.z, s5,  k.z, s2,  l.z, s1),
-            
-             cofac(i.y, c4,  j.y, c2,  l.y, c0),
-            -cofac(i.x, c4,  j.x, c2,  l.x, c0),
-             cofac(i.w, s4,  j.w, s2,  l.w, s0),
-            -cofac(i.z, s4,  j.z, s2,  l.z, s0),
-            
-            -cofac(i.y, c3,  j.y, c1,  k.y, c0),
-             cofac(i.x, c3,  j.x, c1,  k.x, c0),
-            -cofac(i.w, s3,  j.w, s1,  k.w, s0),
-             cofac(i.z, s3,  j.z, s1,  k.z, s0),
+             cofac(j.yxwz, e2we1y, k.yxwz, e2ze1x, l.yxwz, e2ye0w),
+            -cofac(i.yxwz, e2we1y, k.yxwz, e2xe0z, l.yxwz, e1we0y),
+             cofac(i.yxwz, e2ze1x, j.yxwz, e2xe0z, l.yxwz, e1ze0x),
+            -cofac(i.yxwz, e2ye0w, j.yxwz, e1we0y, k.yxwz, e1ze0x),
         )
     ) / det;
 }

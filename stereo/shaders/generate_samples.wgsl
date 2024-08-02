@@ -78,7 +78,7 @@ struct Covariance {
     i_sqrt_det:   f32, // 1 / determinant(sqrt_cov)
 }
   
-// todo: precompute a longer array in an LD sequence, length 16 probably
+// todo: precompute a longer array in an LD sequence, length 32 probably
 // see https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
 const uniform_2d_samples: array<vec2f, 32> = array<vec2f, 32>(
     vec2f(0.25, 0.25),

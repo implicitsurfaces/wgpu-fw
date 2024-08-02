@@ -87,6 +87,13 @@ fn transform(a: Estimate2D, dx: vec2f, F: mat2x2f) -> Estimate2D {
     );
 }
 
+fn transform(a: Estimate3D, dx: vec3f, F: mat3x3f) -> Estimate3D {
+    return Estimate3D(
+        dx + a.x,
+        F  * a.sqrt_sigma,
+    );
+}
+
 fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
     let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
     let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
@@ -97,27 +104,6 @@ fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
     return Estimate2D(
         a.x + K * (b.x - a.x), // update mean
         L * a.sqrt_sigma,      // update sqrt covariance
-    );
-}
-
-fn update_unproject_2d_3d(
-        prior:       Estimate3D,
-        measurement: Estimate2D,
-        H:           mat3x2f) -> Estimate3D
-{
-    let P:  mat3x3f = prior.sqrt_sigma       * transpose(prior.sqrt_sigma);
-    let R:  mat2x2f = measurement.sqrt_sigma * transpose(measurement.sqrt_sigma);
-    let HT: mat2x3f = transpose(H);
-    let S0: mat2x2f = inverse(dot(H, P * HT) + R);
-    let K:  mat3x3f = P * HT * S0;
-    let J:  mat3x3f = mat3x3f(1.) - K * H;
-    
-    let P1: mat3x3f = sqrt_3x3(J * P);
-    let mu: vec3f   = prior.x + K * (measurement.x - dot(H, prior.x));
-    
-    return Estimate3D(
-        mu,
-        P1
     );
 }
 
@@ -151,5 +137,27 @@ fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
         exp(ln_q) / (a_norm * b_norm * c_norm)
         // log of the above:
         // ln_q - log(k_inv) - log(a_norm) - log(b_norm),
+    );
+}
+
+
+fn update_unproject_2d_3d(
+        prior:       Estimate3D,
+        measurement: Estimate2D,
+        H:           mat3x2f) -> Estimate3D
+{
+    let P:  mat3x3f = prior.sqrt_sigma       * transpose(prior.sqrt_sigma);
+    let R:  mat2x2f = measurement.sqrt_sigma * transpose(measurement.sqrt_sigma);
+    let HT: mat2x3f = transpose(H);
+    let S0: mat2x2f = inverse(dot(H, P * HT) + R);
+    let K:  mat3x3f = P * HT * S0;
+    let J:  mat3x3f = mat3x3f(1.) - K * H;
+    
+    let P1: mat3x3f = sqrt_3x3(J * P);
+    let mu: vec3f   = prior.x + K * (measurement.x - dot(H, prior.x));
+    
+    return Estimate3D(
+        mu,
+        P1
     );
 }

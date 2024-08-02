@@ -10,8 +10,6 @@
 @id(1001) override Sample_Invocations: u32 = 4;
 // number of samples per invocation
 @id(1002) override Sample_Multiple: u32 = 4;
-// number of children per feature
-@id(1003) override Branching_Factor: u32 = 4;
 
 const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
 
@@ -22,7 +20,7 @@ const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let feature_idx: u32 = global_id.x;
-    if feature_idx >= u32(correlations.length()) { return; }
+    if feature_idx >= u32(src_features.length()) { return; }
     
     // compute the "frequency weighted" covariance and mean of the sample set
     // see https://stats.stackexchange.com/questions/193046/online-weighted-covariance
@@ -42,6 +40,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         running_cov += w * dot(dx, transpose(dx));
     }
     let est_sqrt_cov: mat2x2f = sqrt_2x2(running_cov / (w_sum - 1));
+    
+    let src_feature: FeaturePair = src_features[feature_idx];
     
     // perform symmetrical update— the measured displacement between
     // the two features constrains/informs where the endpoints can be.
