@@ -80,6 +80,33 @@ MipTexture& MipTexture::operator=(const MipTexture& other) {
     return *this;
 }
 
+void MipTexture::_init() {
+    // create + store bind groups for each mip level
+    size_t mip_levels = texture.texture.getMipLevelCount();
+    wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
+    for (size_t level = 1; level < mip_levels; ++level) {
+        // bind the mip level N and N + 1 texture views
+        mip_entries[0].binding = 0;
+        mip_entries[0].textureView = texture.views[level - 1];
+        
+        mip_entries[1].binding = 1;
+        mip_entries[1].textureView = texture.views[level];
+        
+        wgpu::BindGroupDescriptor bgd;
+        bgd.layout     = generator->_bind_group_layout;
+        bgd.entryCount = 2;
+        bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
+        bind_groups.push_back(texture.device.createBindGroup(bgd));
+    }
+}
+
+void MipTexture::_release() {
+    for (auto bg : bind_groups) {
+        bg.release();
+    }
+    bind_groups.clear();
+}
+
 void MipTexture::generate() {
     wgpu::Queue queue = texture.device.getQueue();
     
@@ -110,33 +137,6 @@ void MipTexture::generate() {
     commands.release();
     compute_pass.release();
     queue.release();
-}
-
-void MipTexture::_init() {
-    // create + store bind groups for each mip level
-    size_t mip_levels = texture.texture.getMipLevelCount();
-    wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
-    for (size_t level = 1; level < mip_levels; ++level) {
-        // bind the mip level N and N + 1 texture views
-        mip_entries[0].binding = 0;
-        mip_entries[0].textureView = texture.views[level - 1];
-        
-        mip_entries[1].binding = 1;
-        mip_entries[1].textureView = texture.views[level];
-        
-        wgpu::BindGroupDescriptor bgd;
-        bgd.layout     = generator->_bind_group_layout;
-        bgd.entryCount = 2;
-        bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
-        bind_groups.push_back(texture.device.createBindGroup(bgd));
-    }
-}
-
-void MipTexture::_release() {
-    for (auto bg : bind_groups) {
-        bg.release();
-    }
-    bind_groups.clear();
 }
 
 

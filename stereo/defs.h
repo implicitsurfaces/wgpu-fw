@@ -127,4 +127,10 @@ constexpr inline uint128_t u128(uint64_t hi, uint64_t lo) {
     return (uint128_t(hi) << 64) | lo;
 }
 
+template <typename... Args>
+void release_all(Args&... items) {
+    auto release = [](auto& item) { if (item) item.release(); };
+    (release(items), ...);
+}
+
 } // namespace stereo

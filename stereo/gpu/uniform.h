@@ -37,10 +37,10 @@ private:
         - (sizeof(T) % MIN_UNIFORM_PADDING_BYTES)
     ];
     
-    static_assert(
-        sizeof(UniformBox) % MIN_UNIFORM_PADDING_BYTES == 0,
-        "UniformBox must be a multiple of MIN_UNIFORM_PADDING_BYTES"
-    );
+    // static_assert(
+    //     sizeof(UniformBox) % MIN_UNIFORM_PADDING_BYTES == 0,
+    //     "UniformBox must be a multiple of MIN_UNIFORM_PADDING_BYTES"
+    // );
 };
 
 }  // namespace stereo

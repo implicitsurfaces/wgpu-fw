@@ -35,6 +35,7 @@ struct Texture {
     wgpu::Texture texture = nullptr;
     MipSetting    mip_setting;
     std::vector<wgpu::TextureView> views;
+    wgpu::TextureView full_view;
     
     Texture(wgpu::Texture texture, wgpu::Device device, MipSetting mip_level = {});
     Texture();
@@ -55,6 +56,7 @@ struct Texture {
     
     wgpu::TextureView view_for_mip(int32_t level);
     wgpu::TextureView view_for_mip(MipLevels level);
+    wgpu::TextureView view();
 
 private:
     

@@ -7,9 +7,9 @@
 //   - could also use the quantified_update formula, and incorporate this
 
 // number of invocations for samples
-@id(1001) override Sample_Invocations: u32 = 4;
+override Sample_Invocations: u32 = 4;
 // number of samples per invocation
-@id(1002) override Sample_Multiple: u32 = 4;
+override Sample_Multiple: u32 = 4;
 
 const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
 

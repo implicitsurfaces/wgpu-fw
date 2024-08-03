@@ -14,11 +14,11 @@ private:
     size_t       _size;
     
     void _init(wgpu::BufferUsage extra_flags) {
-        wgpu::BufferDescriptor feature_bd;
-        feature_bd.size = sizeof(T) * _size;
-        feature_bd.usage = wgpu::BufferUsage::Storage | extra_flags;
-        feature_bd.mappedAtCreation = false;
-        _src_feature_buffer = _device.createBuffer(feature_bd);
+        wgpu::BufferDescriptor buffer_bd;
+        buffer_bd.size = sizeof(T) * _size;
+        buffer_bd.usage = wgpu::BufferUsage::Storage | extra_flags;
+        buffer_bd.mappedAtCreation = false;
+        _buffer = _device.createBuffer(buffer_bd);
     }
     
     void _release() {
@@ -38,7 +38,7 @@ public:
         _init(extra_usage_flags);
     }
     
-    DataBuffer(const Feature2DBuffer& other):
+    DataBuffer(const DataBuffer& other):
         _device(other._device),
         _buffer(other._buffer),
         _size(other._size)
@@ -47,7 +47,7 @@ public:
         if (_buffer) _buffer.reference();
     }
     
-    DataBuffer(Feature2DBuffer&& other):
+    DataBuffer(DataBuffer&& other):
         _device(other._device),
         _buffer(other._buffer),
         _size(other._size)
@@ -61,7 +61,7 @@ public:
         _release();
     }
     
-    DataBuffer& operator=(const Feature2DBuffer&) {
+    DataBuffer& operator=(const DataBuffer& other) {
         _release();
         _device = other._device;
         _buffer = other._buffer;
@@ -71,7 +71,7 @@ public:
         return *this;
     }
     
-    DataBuffer& operator=(Feature2DBuffer&&) {
+    DataBuffer& operator=(DataBuffer&& other) {
         std::swap(_device, other._device);
         std::swap(_buffer, other._buffer);
         std::swap(_size,   other._size);
@@ -85,7 +85,6 @@ public:
     void submit_write(const T* data, range1i range) {
         wgpu::Queue q = _device.getQueue();
         q.writeBuffer(_buffer, range.lo * sizeof(T), data, range.dimensions() * sizeof(T));
-        q.submit();
         q.release();
     }
     

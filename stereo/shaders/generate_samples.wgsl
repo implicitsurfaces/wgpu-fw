@@ -1,21 +1,10 @@
 // #include "sample.wgsl"
 // #include "structs.wgsl"
 
-// todo: get rigorous about the feature offset
-// todo: compute the sample covariance, and update it with the parent covariance
-// todo: figure out how to compute the "kalman overlap" / normalization term for
-//   an estimate of estimate quality
-//   - figure out how to go from a pdf gradient to a covariance
-//     (sigma pts?? outer product??)
-//   - store this in the feature pair and use it for tree conditioning
-// todo: include the sample pdf; use it to update sample quality
-// todo: distinguish sample count and branching factor
-//   - branching factor should be uniform.
-//   - sample count should be
-//     - based on the quality of the sample?
-//     - override constant? (allows for fixed arrays of samples)
+// todo: quality estimate
 // todo: figure out how to estimate an update to the feature bases
-
+// todo: check that max samples not exceeded
+// todo: precomputed sample pts do not need to have their pdfs stored
 
 // okay, here's what we're doing:
 // - "multiple target" sampling is an initialization problem.
@@ -23,7 +12,7 @@
 //   - it's a particle filter-like step
 //   - we have a buffer of correllograms, so we can probably figure out
 //     how to do this without redundant computation
-// - we're maintaining a new invariant: all image feature-pairs
+// x we're maintaining a new invariant: all image feature-pairs
 //   in a tree back-project to a single "coherent" feature in _scene space_
 // x we'll update the parent only at this step
 //   x we'll generate N samples from the correllogram, and N from the (sigma pts?)
@@ -52,6 +41,7 @@
 // x we can discard the "patch sampling". double check that the old algorithm
 //   isn't missing some updates / bug discoveries from our latest work
 // - quality estimate is the normalization factor of the sample pool
+//   > no, we also need to know how good the correlation is
 // > question: when and how do shitty samples get pruned?
 // > this work turned out to be irrelevant for this step:
 //   - gaussian dot product
@@ -59,9 +49,6 @@
 //   - all NxN sampling logic
 //   > all of these might be useful for the resampling step, though
 
-// todo: update the children with the parent's delta
-// todo: check that max samples not exceeded
-// todo: precomputed sample pts do not need to have their pdfs stored
 
 // - thing I don't like: we could move the mean a lot, until the relatively tiny child
 //   covars don't overlap their actual positions
@@ -94,9 +81,9 @@ const unit_gaussian_2d_samples: array<Sample, 32> = array<Sample, 32>(
 );
 
 // number of invocations for samples
-@id(1001) override Sample_Invocations: u32 = 4;
+override Sample_Invocations: u32 = 4;
 // number of samples per invocation
-@id(1002) override Sample_Multiple: u32 = 4;
+override Sample_Multiple: u32 = 4;
 
 const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
 const Wg_Width:     i32 = 64 / Sample_Invocations;
