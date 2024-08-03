@@ -7,6 +7,9 @@ namespace stereo {
  * FilteredTexture       *
  *************************/
 
+// xxx: todo: leaking bindgroups!!
+// todo: the source texture does not need to build mip views
+
 static wgpu::Texture _clone_texture(
         wgpu::Texture source,
         wgpu::Device device,
@@ -36,20 +39,18 @@ static wgpu::Texture _clone_texture(
 }
 
 FilteredTexture::FilteredTexture(wgpu::Texture source, wgpu::Device device, Filter3x3& filter):
-    source(source, device, MipSetting{MipViews::Single, MipLevels::All}),
+    source(source, device),
     df_dx(
         _clone_texture(source, device, "df_dx texture"),
-        device,
-        MipSetting {MipViews::Multiple, MipLevels::All}),
+        device
+    ),
     df_dy(
         _clone_texture(source, device, "df_dy texture"),
-        device,
-        MipSetting {MipViews::Multiple, MipLevels::All}
+        device
     ),
     laplace(
         _clone_texture(source, device, "laplace texture"),
-        device,
-        MipSetting {MipViews::Multiple, MipLevels::All}
+        device
     ),
     filter(&filter) {}
 
@@ -167,8 +168,8 @@ void Filter3x3::_init() {
 }
 
 void Filter3x3::apply(FilteredTexture& tex) {
-    wgpu::TextureView src_view = tex.source.view_for_mip(0);
-    wgpu::Texture src = tex.source.texture;
+    wgpu::TextureView src_view = tex.source.view();
+    wgpu::Texture src = tex.source.texture();
     
     std::array<wgpu::BindGroupEntry, 5> bindings;
     
@@ -211,7 +212,7 @@ void Filter3x3::apply(FilteredTexture& tex) {
         bgd.layout     = _bind_group_layout;
         bgd.entryCount = bindings.size();
         bgd.entries    = (WGPUBindGroupEntry*) bindings.data();
-        wgpu::BindGroup bind_group = _device.createBindGroup(bgd);
+        wgpu::BindGroup bind_group = _device.createBindGroup(bgd); // xxx leak!!
         compute_pass.setBindGroup(0, bind_group, 0, nullptr);
         
         uint32_t bucket_xy = 8;

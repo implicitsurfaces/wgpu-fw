@@ -30,14 +30,15 @@ struct MipSetting {
 };
 
 struct Texture {
-    
-    wgpu::Device  device  = nullptr;
-    wgpu::Texture texture = nullptr;
-    MipSetting    mip_setting;
-    std::vector<wgpu::TextureView> views;
-    wgpu::TextureView full_view;
-    
-    Texture(wgpu::Texture texture, wgpu::Device device, MipSetting mip_level = {});
+private:    
+    wgpu::Device  _device  = nullptr;
+    wgpu::Texture _texture = nullptr;
+    range1i       _mip_range;
+    std::vector<wgpu::TextureView> _mip_views;
+    wgpu::TextureView _full_view;
+
+public:
+    Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range=range1i::full);
     Texture();
     Texture(const Texture&);
     Texture(Texture&&);
@@ -51,12 +52,13 @@ struct Texture {
     Texture clone(
         std::string_view label,
         std::optional<wgpu::TextureUsageFlags> usage=std::nullopt,
-        std::optional<MipSetting> mip_setting=std::nullopt
+        std::optional<range1i> mip_range=std::nullopt
     );
     
     wgpu::TextureView view_for_mip(int32_t level);
-    wgpu::TextureView view_for_mip(MipLevels level);
     wgpu::TextureView view();
+    wgpu::Texture     texture() const;
+    wgpu::Device      device() const;
 
 private:
     

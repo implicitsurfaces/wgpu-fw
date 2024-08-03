@@ -30,11 +30,7 @@ MipTexture::MipTexture() {}
 MipTexture::MipTexture(wgpu::Texture texture, MipGenerator& gen):
         texture(
             texture,
-            gen.get_device(), 
-            {
-                .view_type = MipViews::Multiple,
-                .range     = MipLevels::All
-            }
+            gen.get_device()
         ),
         generator(&gen)
 {
@@ -82,21 +78,21 @@ MipTexture& MipTexture::operator=(const MipTexture& other) {
 
 void MipTexture::_init() {
     // create + store bind groups for each mip level
-    size_t mip_levels = texture.texture.getMipLevelCount();
+    size_t mip_levels = texture.texture().getMipLevelCount();
     wgpu::BindGroupEntry mip_entries[2] = { wgpu::Default, wgpu::Default };
     for (size_t level = 1; level < mip_levels; ++level) {
         // bind the mip level N and N + 1 texture views
         mip_entries[0].binding = 0;
-        mip_entries[0].textureView = texture.views[level - 1];
+        mip_entries[0].textureView = texture.view_for_mip(level - 1);
         
         mip_entries[1].binding = 1;
-        mip_entries[1].textureView = texture.views[level];
+        mip_entries[1].textureView = texture.view_for_mip(level);
         
         wgpu::BindGroupDescriptor bgd;
         bgd.layout     = generator->_bind_group_layout;
         bgd.entryCount = 2;
         bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
-        bind_groups.push_back(texture.device.createBindGroup(bgd));
+        bind_groups.push_back(texture.device().createBindGroup(bgd));
     }
 }
 
@@ -108,19 +104,19 @@ void MipTexture::_release() {
 }
 
 void MipTexture::generate() {
-    wgpu::Queue queue = texture.device.getQueue();
+    wgpu::Queue queue = texture.device().getQueue();
     
     // construct the mipmap processing pass
     wgpu::CommandEncoderDescriptor encoder_descriptor = wgpu::Default;
-    wgpu::CommandEncoder encoder = texture.device.createCommandEncoder(encoder_descriptor);
+    wgpu::CommandEncoder encoder = texture.device().createCommandEncoder(encoder_descriptor);
     
     wgpu::ComputePassDescriptor compute_pass_descriptor;
     wgpu::ComputePassEncoder compute_pass = encoder.beginComputePass(compute_pass_descriptor);
     compute_pass.setPipeline(generator->_pipeline);
     
-    uint32_t res_x = texture.texture.getWidth();
-    uint32_t res_y = texture.texture.getHeight();
-    for (size_t level = 1; level < texture.texture.getMipLevelCount(); ++level) {
+    uint32_t res_x = texture.texture().getWidth();
+    uint32_t res_y = texture.texture().getHeight();
+    for (size_t level = 1; level < texture.texture().getMipLevelCount(); ++level) {
         compute_pass.setBindGroup(0, bind_groups[level - 1], 0, nullptr);
         uint32_t invocations_x = res_x >> level;
         uint32_t invocations_y = res_y >> level;

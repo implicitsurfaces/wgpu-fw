@@ -33,7 +33,7 @@ FrameSource::FrameSource(
         res(capture_res(source)),
         src_texture(_create_texture(mip_gen.get_device())),
         mip(mip_gen.create_mip_texture(src_texture)),
-        filtered(mip.texture.texture, mip_gen.get_device(), filter),
+        filtered(mip.texture.texture(), mip_gen.get_device(), filter),
         _capture_buffer(capture_buffer) {}
 
 wgpu::Texture FrameSource::_create_texture(wgpu::Device device) {
@@ -146,7 +146,7 @@ bool FrameSource::capture() {
         src_layout.rowsPerImage = res.y;
         
         // upload the new data to the texture
-        wgpu::Queue queue = mip.texture.device.getQueue();
+        wgpu::Queue queue = mip.texture.device().getQueue();
         queue.writeTexture(
             dst_texture,
             _capture_buffer.data(),
