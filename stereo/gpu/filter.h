@@ -13,9 +13,28 @@ struct FilteredTexture {
     Texture laplace;
     
     Filter3x3* filter = nullptr;
+
+private:
+    
+    wgpu::BindGroup _src_bindgroup = nullptr;
+    std::vector<wgpu::BindGroup> _dst_bind_groups;
+    
+    void _init();
+    void _release();
+    
+public:
     
     FilteredTexture() = default;
     FilteredTexture(wgpu::Texture source, wgpu::Device device, Filter3x3& filter);
+    FilteredTexture(const FilteredTexture&);
+    FilteredTexture(FilteredTexture&&);
+    ~FilteredTexture();
+    
+    FilteredTexture& operator=(const FilteredTexture&);
+    FilteredTexture& operator=(FilteredTexture&&);
+    
+    wgpu::BindGroup source_bindgroup();
+    wgpu::BindGroup target_bindgroup(size_t level);
     
     void process();
 };
@@ -25,14 +44,23 @@ struct Filter3x3 {
     static constexpr uint32_t max_mip_levels = 24;
     
 private:
-    wgpu::Device          _device            = nullptr;
-    wgpu::BindGroupLayout _bind_group_layout = nullptr;
-    wgpu::ComputePipeline _pipeline          = nullptr;
-    wgpu::Buffer          _uniform_buffer    = nullptr;
+    wgpu::Device          _device             = nullptr;
+    // uniforms
+    wgpu::Buffer          _uniform_buffer     = nullptr;
+    // bind group layouts
+    wgpu::BindGroupLayout _src_layout         = nullptr;
+    wgpu::BindGroupLayout _dst_layout         = nullptr;
+    wgpu::BindGroupLayout _uniform_layout     = nullptr;
+    // bind group
+    wgpu::BindGroup       _uniform_bind_group = nullptr;
+    // pipeline
+    wgpu::ComputePipeline _pipeline           = nullptr;
     
     void _init();
     void _release();
-
+    
+    friend class FilteredTexture;
+    
 public:
     
     Filter3x3(wgpu::Device device);

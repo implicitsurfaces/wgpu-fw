@@ -1,8 +1,10 @@
 @group(0) @binding(0) var src_tex:     texture_2d<f32>;
-@group(0) @binding(1) var df_dx_tex:   texture_storage_2d<rgba8snorm,write>;
-@group(0) @binding(2) var df_dy_tex:   texture_storage_2d<rgba8snorm,write>;
-@group(0) @binding(3) var laplace_tex: texture_storage_2d<rgba8snorm,write>;
-@group(0) @binding(4) var<uniform> mip_level: i32;
+
+@group(1) @binding(0) var df_dx_tex:   texture_storage_2d<rgba8snorm,write>;
+@group(1) @binding(1) var df_dy_tex:   texture_storage_2d<rgba8snorm,write>;
+@group(1) @binding(2) var laplace_tex: texture_storage_2d<rgba8snorm,write>;
+
+@group(2) @binding(0) var<uniform> mip_level: i32;
 
 // a row major packing of all the souce texel values.
 // the first row is the top row.

@@ -7,8 +7,8 @@ namespace stereo {
  * FilteredTexture       *
  *************************/
 
-// xxx: todo: leaking bindgroups!!
 // todo: the source texture does not need to build mip views
+//   (we don't use them, but they take up space)
 
 static wgpu::Texture _clone_texture(
         wgpu::Texture source,
@@ -54,8 +54,118 @@ FilteredTexture::FilteredTexture(wgpu::Texture source, wgpu::Device device, Filt
     ),
     filter(&filter) {}
 
+
+FilteredTexture::FilteredTexture(const FilteredTexture& other):
+    source(other.source),
+    df_dx(other.df_dx),
+    df_dy(other.df_dy),
+    laplace(other.laplace),
+    filter(other.filter),
+    _src_bindgroup(other._src_bindgroup),
+    _dst_bind_groups(other._dst_bind_groups)
+{
+    if (_src_bindgroup) _src_bindgroup.reference();
+    for (wgpu::BindGroup bg : _dst_bind_groups) {
+        bg.reference();
+    }
+}
+
+FilteredTexture::FilteredTexture(FilteredTexture&& other):
+    source(std::move(other.source)),
+    df_dx(std::move(other.df_dx)),
+    df_dy(std::move(other.df_dy)),
+    laplace(std::move(other.laplace)),
+    filter(other.filter),
+    _src_bindgroup(other._src_bindgroup),
+    _dst_bind_groups(other._dst_bind_groups)
+{
+    other._src_bindgroup = nullptr;
+    other._dst_bind_groups.clear();
+}
+
+FilteredTexture::~FilteredTexture() {
+    _release();
+}
+
+FilteredTexture& FilteredTexture::operator=(const FilteredTexture& other) {
+    _release();
+    source  = other.source;
+    df_dx   = other.df_dx;
+    df_dy   = other.df_dy;
+    laplace = other.laplace;
+    filter  = other.filter;
+    _src_bindgroup   = other._src_bindgroup;
+    _dst_bind_groups = other._dst_bind_groups;
+    if (_src_bindgroup) _src_bindgroup.reference();
+    for (wgpu::BindGroup bg : _dst_bind_groups) {
+        bg.reference();
+    }
+    return *this;
+}
+
+FilteredTexture& FilteredTexture::operator=(FilteredTexture&& other) {
+    std::swap(source, other.source);
+    std::swap(df_dx, other.df_dx);
+    std::swap(df_dy, other.df_dy);
+    std::swap(laplace, other.laplace);
+    std::swap(filter, other.filter);
+    std::swap(_src_bindgroup, other._src_bindgroup);
+    std::swap(_dst_bind_groups, other._dst_bind_groups);
+    return *this;
+}
+
+void FilteredTexture::_init() {
+    wgpu::BindGroupEntry src_entry = wgpu::Default;
+    src_entry.binding     = 0;
+    src_entry.textureView = source.view();
+    
+    wgpu::BindGroupDescriptor src_desc;
+    src_desc.layout     = filter->_src_layout;
+    src_desc.entryCount = 1;
+    src_desc.entries    = &src_entry;
+    src_desc.label      = "filter3x3 source bind group";
+    _src_bindgroup = source.device().createBindGroup(src_desc);
+    
+    std::array<wgpu::BindGroupEntry, 3> dst_entries;
+    dst_entries[0].binding = 0;
+    dst_entries[1].binding = 1;
+    dst_entries[2].binding = 2;
+    
+    int32_t mip_levels = source.num_mip_levels();
+    for (int32_t i = 0; i < mip_levels; i++) {
+        dst_entries[1].textureView = df_dx.view_for_mip(i);
+        dst_entries[2].textureView = df_dy.view_for_mip(i);
+        dst_entries[3].textureView = laplace.view_for_mip(i);
+        
+        wgpu::BindGroupDescriptor dst_desc;
+        dst_desc.layout     = filter->_dst_layout;
+        dst_desc.entryCount = dst_entries.size();
+        dst_desc.entries    = dst_entries.data();
+        dst_desc.label      = ("filter3x3 destination bind group (mip=" 
+                + std::to_string(i)
+                + ")"
+            ).c_str();
+        wgpu::BindGroup bg = source.device().createBindGroup(dst_desc);
+    }
+}
+
+void FilteredTexture::_release() {
+    if (_src_bindgroup) _src_bindgroup.release();
+    for (wgpu::BindGroup bg : _dst_bind_groups) {
+        bg.release();
+    }
+}
+
 void FilteredTexture::process() {
     filter->apply(*this);
+}
+
+wgpu::BindGroup FilteredTexture::source_bindgroup() {
+    return _src_bindgroup;
+}
+
+wgpu::BindGroup FilteredTexture::target_bindgroup(size_t level) {
+    return _dst_bind_groups[level];
 }
 
 
@@ -80,10 +190,15 @@ Filter3x3::~Filter3x3() {
 }
 
 void Filter3x3::_release() {
-    if (_pipeline)          _pipeline.release();
-    if (_bind_group_layout) _bind_group_layout.release();
-    if (_uniform_buffer)    _uniform_buffer.release();
-    if (_device)            _device.release();
+    release_all(
+        _pipeline,
+        _uniform_bind_group,
+        _uniform_layout,
+        _dst_layout,
+        _src_layout,
+        _uniform_buffer,
+        _device
+    );
 }
 
 void Filter3x3::_init() {
@@ -94,46 +209,69 @@ void Filter3x3::_init() {
         std::abort();
     }
     
-    std::array<wgpu::BindGroupLayoutEntry, 5> bindings;
-    
-    wgpu::BindGroupLayoutEntry& src_entry = bindings[0];
+    // source bind group layout
+    wgpu::BindGroupLayoutEntry src_entry = wgpu::Default;
     src_entry.binding               = 0;
     src_entry.visibility            = wgpu::ShaderStage::Compute;
     src_entry.texture.sampleType    = wgpu::TextureSampleType::Float;
     src_entry.texture.viewDimension = wgpu::TextureViewDimension::_2D;
     
-    wgpu::BindGroupLayoutEntry& dst_df_dx  = bindings[1];
-    dst_df_dx.binding                      = 1;
+    wgpu::BindGroupLayoutDescriptor src_desc = {};
+    src_desc.label       = "filter3x3 source bind group";
+    src_desc.entryCount  = 1;
+    src_desc.entries     = &src_entry;
+    src_desc.nextInChain = nullptr;
+    _src_layout = _device.createBindGroupLayout(src_desc);
+    
+    // destination bind group layout
+    std::array<wgpu::BindGroupLayoutEntry, 3> dst_bindings;
+    wgpu::BindGroupLayoutEntry& dst_df_dx  = dst_bindings[0];
+    dst_df_dx.binding                      = 0;
     dst_df_dx.visibility                   = wgpu::ShaderStage::Compute;
     dst_df_dx.storageTexture.access        = wgpu::StorageTextureAccess::WriteOnly;
     dst_df_dx.storageTexture.format        = wgpu::TextureFormat::RGBA8Snorm;
     dst_df_dx.storageTexture.viewDimension = wgpu::TextureViewDimension::_2D;
     
-    wgpu::BindGroupLayoutEntry& dst_df_dy  = bindings[2];
+    wgpu::BindGroupLayoutEntry& dst_df_dy  = dst_bindings[1];
     dst_df_dy = dst_df_dx;
-    dst_df_dy.binding = 2;
+    dst_df_dy.binding = 1;
     
-    wgpu::BindGroupLayoutEntry& dst_laplace  = bindings[3];
+    wgpu::BindGroupLayoutEntry& dst_laplace  = dst_bindings[2];
     dst_laplace = dst_df_dx;
-    dst_laplace.binding = 3;
+    dst_laplace.binding = 2;
     
-    wgpu::BindGroupLayoutEntry& uniform_entry = bindings[4];
-    uniform_entry.binding     = 4;
-    uniform_entry.visibility  = wgpu::ShaderStage::Compute;
-    uniform_entry.buffer.type = wgpu::BufferBindingType::Uniform;
-    uniform_entry.buffer.minBindingSize = sizeof(FilterUniforms);
+    wgpu::BindGroupLayoutDescriptor dst_desc = {};
+    dst_desc.label       = "filter3x3 destination bind group";
+    dst_desc.entryCount  = dst_bindings.size();
+    dst_desc.entries     = dst_bindings.data();
+    dst_desc.nextInChain = nullptr;
+    _dst_layout = _device.createBindGroupLayout(dst_desc);
     
-    wgpu::BindGroupLayoutDescriptor desc = {};
-    desc.label       = "filter3x3";
-    desc.entryCount  = bindings.size();
-    desc.entries     = bindings.data();
-    desc.nextInChain = nullptr;
+    // uniform bind group layout
+    wgpu::BindGroupLayoutEntry uniform_layout_entry = wgpu::Default;
+    uniform_layout_entry.binding     = 0;
+    uniform_layout_entry.visibility  = wgpu::ShaderStage::Compute;
+    uniform_layout_entry.buffer.type = wgpu::BufferBindingType::Uniform;
+    uniform_layout_entry.buffer.minBindingSize = sizeof(FilterUniforms);
+    uniform_layout_entry.buffer.hasDynamicOffset = true;
     
-    _bind_group_layout = _device.createBindGroupLayout(desc);
+    wgpu::BindGroupLayoutDescriptor uniform_desc = {};
+    uniform_desc.label       = "filter3x3 uniforms bind group";
+    uniform_desc.entryCount  = 1;
+    uniform_desc.entries     = &uniform_layout_entry;
+    uniform_desc.nextInChain = nullptr;
+    _uniform_layout      = _device.createBindGroupLayout(uniform_desc);
+    
+    // pipeline setup
+    std::array<wgpu::BindGroupLayout, 3> layouts = {
+        _src_layout,
+        _dst_layout,
+        _uniform_layout
+    };
     
     wgpu::PipelineLayoutDescriptor pl_desc = {};
-    pl_desc.bindGroupLayoutCount = 1;
-    pl_desc.bindGroupLayouts     = (WGPUBindGroupLayout*) &_bind_group_layout;
+    pl_desc.bindGroupLayoutCount = layouts.size();
+    pl_desc.bindGroupLayouts     = (WGPUBindGroupLayout*) layouts.data();
     wgpu::PipelineLayout pl      = _device.createPipelineLayout(pl_desc);
     
     wgpu::ComputePipelineDescriptor cp_desc;
@@ -165,6 +303,20 @@ void Filter3x3::_init() {
     queue.release();
     
     _pipeline = _device.createComputePipeline(cp_desc);
+    
+    // create the bind group for the uniforms
+    wgpu::BindGroupEntry uniform_entry = wgpu::Default;
+    uniform_entry.binding = 0;
+    uniform_entry.buffer  = _uniform_buffer;
+    uniform_entry.offset  = 0;
+    uniform_entry.size    = sizeof(FilterUniforms);
+    
+    wgpu::BindGroupDescriptor bgd;
+    bgd.layout     = _uniform_layout;
+    bgd.entryCount = 1;
+    bgd.entries    = (WGPUBindGroupEntry*) &uniform_entry;
+    bgd.label      = "filter 3x3 uniform bind group";
+    _uniform_bind_group = _device.createBindGroup(bgd);
 }
 
 void Filter3x3::apply(FilteredTexture& tex) {
@@ -201,19 +353,13 @@ void Filter3x3::apply(FilteredTexture& tex) {
     std::vector<wgpu::TextureView> mip_views;
     
     // one exec for each mip level
-    int mips = src.getMipLevelCount();
+    int mips = tex.source.num_mip_levels();
+    compute_pass.setBindGroup(0, tex.source_bindgroup(), 0, nullptr);
+    compute_pass.setBindGroup(2, _uniform_bind_group,    0, nullptr);
     for (int i = 0; i < mips; i++) {
-        bindings[1].textureView = tex.df_dx.view_for_mip(i);
-        bindings[2].textureView = tex.df_dy.view_for_mip(i);
-        bindings[3].textureView = tex.laplace.view_for_mip(i);
-        bindings[4].offset      = i * sizeof(FilterUniforms);
-        
-        wgpu::BindGroupDescriptor bgd;
-        bgd.layout     = _bind_group_layout;
-        bgd.entryCount = bindings.size();
-        bgd.entries    = (WGPUBindGroupEntry*) bindings.data();
-        wgpu::BindGroup bind_group = _device.createBindGroup(bgd); // xxx leak!!
-        compute_pass.setBindGroup(0, bind_group, 0, nullptr);
+        uint32_t uniform_offset = i * sizeof(FilterUniforms);
+        compute_pass.setBindGroup(1, tex.target_bindgroup(i), 0, nullptr);
+        compute_pass.setBindGroup(2, _uniform_bind_group,     1, &uniform_offset);
         
         uint32_t bucket_xy = 8;
         uint32_t invocations_x = src_res.x >> i;
