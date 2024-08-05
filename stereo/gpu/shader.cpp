@@ -44,10 +44,10 @@ wgpu::ShaderModule shader_from_str(wgpu::Device device, const char* source) {
     wgpu::ShaderModuleWGSLDescriptor shader_code {};
 	shader_code.chain.next = nullptr;
 	shader_code.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
+	shader_code.code = source;
     
 	wgpu::ShaderModuleDescriptor shader_module {};
 	shader_module.nextInChain = &shader_code.chain;
-	shader_code.code = source;
 	shader_module.hintCount = 0;
 	shader_module.hints = nullptr;
 	return device.createShaderModule(shader_module);

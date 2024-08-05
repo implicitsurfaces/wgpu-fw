@@ -275,6 +275,7 @@ void Filter3x3::_init() {
     wgpu::PipelineLayout pl      = _device.createPipelineLayout(pl_desc);
     
     wgpu::ComputePipelineDescriptor cp_desc;
+    cp_desc.label                 = "filter 3x3 pipeline";
     cp_desc.compute.constantCount = 0;
     cp_desc.compute.constants     = nullptr;
     cp_desc.compute.entryPoint    = "filter_main";

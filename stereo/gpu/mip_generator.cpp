@@ -182,6 +182,7 @@ void MipGenerator::_init() {
     wgpu::PipelineLayout pipeline_layout = _device.createPipelineLayout(pipeline_layout_descriptor);
     
     wgpu::ComputePipelineDescriptor cpd;
+    cpd.label                 = "mip generator pipeline";
     cpd.compute.constantCount = 0;
     cpd.compute.constants     = nullptr;
     cpd.compute.entryPoint    = "compute_mipmap";

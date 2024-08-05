@@ -88,7 +88,7 @@ void Texture::_init() {
     view_descriptor.arrayLayerCount = 1;
     view_descriptor.dimension       = wgpu::TextureViewDimension::_2D;
     view_descriptor.format          = _texture.getFormat();
-    view_descriptor.mipLevelCount   = n_levels;
+    view_descriptor.mipLevelCount   = 1;
     
     _mip_views.reserve(n_levels);
     for (size_t level = view_range.lo; level <= view_range.hi; ++level) {
@@ -98,8 +98,8 @@ void Texture::_init() {
         _mip_views.push_back(_texture.createView(view_descriptor));
     }
     
-    view_descriptor.baseMipLevel = 0;
-    view_descriptor.mipLevelCount = _texture.getMipLevelCount();
+    view_descriptor.baseMipLevel  = view_range.lo;
+    view_descriptor.mipLevelCount = n_levels;
     view_descriptor.label = "texture view (all mip levels)";
     _full_view = _texture.createView(view_descriptor);
 }
