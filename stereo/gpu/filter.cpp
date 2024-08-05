@@ -52,7 +52,10 @@ FilteredTexture::FilteredTexture(wgpu::Texture source, wgpu::Device device, Filt
         _clone_texture(source, device, "laplace texture"),
         device
     ),
-    filter(&filter) {}
+    filter(&filter)
+{
+    _init();
+}
 
 
 FilteredTexture::FilteredTexture(const FilteredTexture& other):
@@ -104,12 +107,12 @@ FilteredTexture& FilteredTexture::operator=(const FilteredTexture& other) {
 }
 
 FilteredTexture& FilteredTexture::operator=(FilteredTexture&& other) {
-    std::swap(source, other.source);
-    std::swap(df_dx, other.df_dx);
-    std::swap(df_dy, other.df_dy);
+    std::swap(source,  other.source);
+    std::swap(df_dx,   other.df_dx);
+    std::swap(df_dy,   other.df_dy);
     std::swap(laplace, other.laplace);
-    std::swap(filter, other.filter);
-    std::swap(_src_bindgroup, other._src_bindgroup);
+    std::swap(filter,  other.filter);
+    std::swap(_src_bindgroup,   other._src_bindgroup);
     std::swap(_dst_bind_groups, other._dst_bind_groups);
     return *this;
 }
@@ -132,10 +135,11 @@ void FilteredTexture::_init() {
     dst_entries[2].binding = 2;
     
     int32_t mip_levels = source.num_mip_levels();
+    _dst_bind_groups.reserve(mip_levels);
     for (int32_t i = 0; i < mip_levels; i++) {
-        dst_entries[1].textureView = df_dx.view_for_mip(i);
-        dst_entries[2].textureView = df_dy.view_for_mip(i);
-        dst_entries[3].textureView = laplace.view_for_mip(i);
+        dst_entries[0].textureView = df_dx.view_for_mip(i);
+        dst_entries[1].textureView = df_dy.view_for_mip(i);
+        dst_entries[2].textureView = laplace.view_for_mip(i);
         
         wgpu::BindGroupDescriptor dst_desc;
         dst_desc.layout     = filter->_dst_layout;
@@ -146,6 +150,7 @@ void FilteredTexture::_init() {
                 + ")"
             ).c_str();
         wgpu::BindGroup bg = source.device().createBindGroup(dst_desc);
+        _dst_bind_groups.push_back(bg);
     }
 }
 
