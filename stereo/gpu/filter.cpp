@@ -361,7 +361,6 @@ void Filter3x3::apply(FilteredTexture& tex) {
     // one exec for each mip level
     int mips = tex.source.num_mip_levels();
     compute_pass.setBindGroup(0, tex.source_bindgroup(), 0, nullptr);
-    compute_pass.setBindGroup(2, _uniform_bind_group,    0, nullptr);
     for (int i = 0; i < mips; i++) {
         uint32_t uniform_offset = i * sizeof(FilterUniforms);
         compute_pass.setBindGroup(1, tex.target_bindgroup(i), 0, nullptr);
