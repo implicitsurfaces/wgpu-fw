@@ -1,5 +1,7 @@
 import itertools
 import os.path
+import re
+import shutil
 
 Import('env')
 
@@ -51,11 +53,88 @@ extra_wasm_linkflags = {
 obj_sources    = [Glob('*/*.cpp'), Glob('*/*/*.cpp'), Glob('*/*/*/*.cpp')]
 prog_sources   = Glob('*.cpp')
 shader_sources = Glob('shaders/*.wgsl')
+shader_out_dir = os.path.join(data_out, 'shaders')
 
 indexes = []
 
 programs = []
 default_targets = []
+
+
+# WGSL include expansion
+
+INCLUDE_PATTERN = re.compile(r'^#include\s+"([^"]+)"')
+
+def extract_immediate_includes(fname):
+    incs = []
+    with open(fname, 'r') as f:
+        for line in f:
+            line = line.strip()
+            is_comment = False
+            if line.startswith('//'):
+                line = line[2:].strip()
+                is_comment = True
+            match = INCLUDE_PATTERN.match(line)
+            if match:
+                incname = match.group(1)
+                incpath = os.path.join(os.path.dirname(fname), incname)
+                incs.append(incpath)
+            # continue until we hit code
+            # (not an include, comment, or empty line)
+            if not (match or is_comment or line == ''):
+                break
+    return incs
+
+def evaluate_deps(target, source, env, seen=None):
+    if seen is None:
+        seen = set()
+    srcpath = str(source)
+    incs    = set(extract_immediate_includes(srcpath))
+    for i in incs:
+        if i not in seen:
+            seen.add(i)
+            inc_source = env.File(i)
+            env.Depends(target, inc_source)
+            evaluate_deps(target, inc_source, env, seen)
+
+def expand_includes(target, source, env, seen=None):
+    if seen is None:
+        seen = set()
+    srcpath = str(source)
+    dstpath = str(target)
+    incs    = extract_immediate_includes(srcpath)
+    for i in incs:
+        if i in seen:
+            continue
+        seen.add(i)
+        inc_source = env.File(i)
+        # fully expand the include, recursively copying the contents of the
+        # included files into the destination file, with the include
+        # itself coming last
+        expand_includes(target, inc_source, env, seen)
+    
+    with open(dstpath, 'a') as dst_f:
+        # copy the contents of the source file to the destination
+        with open(srcpath, 'r') as src_f:
+            dst_f.write(f"// expanded from `{srcpath}` {{\n")
+            shutil.copyfileobj(src_f, dst_f)
+            dst_f.write(f"// }} end `{srcpath}` expansion\n")
+
+def WgslExpand(env, target, source):
+    for t in target:
+        for s in source:
+            expand_includes(t, s, env)
+
+wgsl_builder = Builder(action=WgslExpand)
+env.Append(BUILDERS={'WgslExpand' : wgsl_builder})
+
+for f in shader_sources:
+    built_shader = env.File(os.path.join(shader_out_dir, f.name))
+    evaluate_deps(built_shader, f, env)
+    s = env.WgslExpand(target=built_shader, source=f)
+    default_targets.append(s)
+
+# ordinary build
 
 if arch == 'wasm':
     preload_flags = itertools.chain(*
@@ -93,10 +172,10 @@ else:
         programs.append(prog)
 
 # install shader files
-shader_out_dir = os.path.join(data_out, 'shaders')
-default_targets.append(
-    env.Install(env.Dir(shader_out_dir), shader_sources)
-)
+# shader_out_dir = os.path.join(data_out, 'shaders')
+# default_targets.append(
+#     env.Install(env.Dir(shader_out_dir), shader_sources)
+# )
 
 Default([*programs, *default_targets])
 
