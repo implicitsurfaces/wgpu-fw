@@ -2,6 +2,7 @@ import itertools
 import os.path
 import re
 import shutil
+import sys
 
 Import('env')
 
@@ -67,22 +68,26 @@ INCLUDE_PATTERN = re.compile(r'^#include\s+"([^"]+)"')
 
 def extract_immediate_includes(fname):
     incs = []
-    with open(fname, 'r') as f:
-        for line in f:
-            line = line.strip()
-            is_comment = False
-            if line.startswith('//'):
-                line = line[2:].strip()
-                is_comment = True
-            match = INCLUDE_PATTERN.match(line)
-            if match:
-                incname = match.group(1)
-                incpath = os.path.join(os.path.dirname(fname), incname)
-                incs.append(incpath)
-            # continue until we hit code
-            # (not an include, comment, or empty line)
-            if not (match or is_comment or line == ''):
-                break
+    try:
+        with open(fname, 'r') as f:
+            for line in f:
+                line = line.strip()
+                is_comment = False
+                if line.startswith('//'):
+                    line = line[2:].strip()
+                    is_comment = True
+                match = INCLUDE_PATTERN.match(line)
+                if match:
+                    incname = match.group(1)
+                    incpath = os.path.join(os.path.dirname(fname), incname)
+                    incs.append(incpath)
+                # continue until we hit code
+                # (not an include, comment, or empty line)
+                if not (match or is_comment or line == ''):
+                    break
+    except FileNotFoundError:
+        print(f"warning: file `{fname}` not found", file=sys.stderr)
+        pass
     return incs
 
 def evaluate_deps(target, source, env, seen=None):

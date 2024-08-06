@@ -2,7 +2,7 @@
 // common structs across multiple stages of stereo fusion
 
 struct CorrelationWindow {
-    correlation: mat4x4,
+    correlation: mat4x4f,
 }
 
 struct ImageFeature {

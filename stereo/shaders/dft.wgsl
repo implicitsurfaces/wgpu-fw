@@ -12,23 +12,23 @@ struct cvec4 {
     imag: vec4f,
 }
 
-fn mul(p: cmat4, q: cmat4) -> cmat4 {
+fn mul_mm(p: cmat4, q: cmat4) -> cmat4 {
     let real: mat4x4f = p.real * q.real - p.imag * q.imag;
     let imag: mat4x4f = p.real * q.imag + p.imag * q.real;
     return cmat4(real, imag);
 }
 
-fn mul(m: cmat4, v: cvec4) -> cvec4 {
+fn mul_mv(m: cmat4, v: cvec4) -> cvec4 {
     let real: vec4f = m.real * v.real - m.imag * v.imag;
     let imag: vec4f = m.real * v.imag + m.imag * v.real;
     return cvec4(real, imag);
 }
 
-fn transpose(m: cmat4) -> cmat4 {
+fn transpose_c(m: cmat4) -> cmat4 {
     return cmat4(transpose(m.real), transpose(m.imag));
 }
 
-fn hadamard(m0: mat4x4f, m1: mat4x4f) -> mat4x4f {
+fn hadamard_mm(m0: mat4x4f, m1: mat4x4f) -> mat4x4f {
     // wgsl sadly doesn't support element-wise multiplication for matrices
     return mat4x4f(
         m0[0] * m1[0],
@@ -38,9 +38,9 @@ fn hadamard(m0: mat4x4f, m1: mat4x4f) -> mat4x4f {
     );
 }
 
-fn hadamard(m0: cmat4, m1: cmat4) -> cmat4 {
-    real: mat4x4f = hadamard(m0.real, m1.real) - hadamard(m0.imag, m1.imag);
-    imag: mat4x4f = hadamard(m0.real, m1.imag) + hadamard(m0.imag, m1.real);
+fn hadamard_cc(m0: cmat4, m1: cmat4) -> cmat4 {
+    let real: mat4x4f = hadamard_mm(m0.real, m1.real) - hadamard_mm(m0.imag, m1.imag);
+    let imag: mat4x4f = hadamard_mm(m0.real, m1.imag) + hadamard_mm(m0.imag, m1.real);
     return cmat4(real, imag);
 }
 
@@ -78,20 +78,21 @@ fn dft4x4(img: cmat4) -> cmat4 {
     );
     // DFT * img * DFT^T;
     // except the above is transposed (written row-major, but actually col-major)
-    return mul(transpose(dft), mul(img, dft));
+    return mul_mm(transpose_c(dft), mul_mm(img, dft));
 }
 
 fn inv_dft4x4(X: cmat4) -> cmat4 {
     // DFT^1(X) = (1/N) * swap(DFT(swap(X)));
     // swap(x) := exchange real and imag parts of x
-    let result: cmat4 = dft(cmat4(X.imag, X.real));
-    return cmat4(result.imag / 16., result.real / 16.);
+    let result: cmat4 = dft4x4(cmat4(X.imag, X.real));
+    let i_16: f32 = 1. / 16.;
+    return cmat4(result.imag * i_16, result.real * i_16);
 }
 
 fn cross_correlation(img_0: cmat4, img_1: cmat4) -> cmat4 {
     let dft_0: cmat4 = dft4x4(img_0);
     let dft_1: cmat4 = dft4x4(img_1);
-    let xcor:  cmat4 = hadamard(dft_0, conj(dft_1));
+    let xcor:  cmat4 = hadamard_cc(dft_0, conj(dft_1));
     return inv_dft4x4(xcor);
 }
 
@@ -100,8 +101,10 @@ fn normed_cross_correlation(img_0: cmat4, img_1: cmat4) -> mat4x4f {
     let m2: mat4x4f = complex_mod2(xcor);
     let sum: f32 = dot(vec4f(1.), m2 * vec4f(1.));
     if sum == 0. {
-        return mat4x4f(1. / 16.);
+        let e:  f32   = 1. / 16.;
+        let ev: vec4f = vec4f(e);
+        return mat4x4f(ev, ev, ev, ev);
     } else {
-        return m2 / sum;
+        return m2 * (1. / sum);
     }
 }

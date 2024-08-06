@@ -11,11 +11,6 @@ fn det2x2_v4(a: vec4f, b: vec4f, c: vec4f, d: vec4f) -> vec4f {
     return fma(a, d, -b * c);
 }
 
-fn cofac(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32) -> f32 {
-    // a * b - c * d + e * f
-    fma(e, f, fma(-c, d, a * b));
-}
-
 fn cofac(
         a: vec4f,
         b: vec4f,
@@ -30,24 +25,24 @@ fn cofac(
 }
 
 
-fn inverse(m: mat2x2f) -> mat2x2f {
+fn inverse2x2(m: mat2x2f) -> mat2x2f {
   let a: f32   = m[0][0];
   let b: f32   = m[1][0];
   let c: f32   = m[0][1];
   let d: f32   = m[1][1];
   let det: f32 = determinant(m);
-  if det == 0. { return mat2x2f(0.); }
+  if det == 0. { return mat2x2f(); }
   // don't forget: column major
   return mat2x2f(d, -c, -b,  a) / det;
 }
 
 
-fn inverse(m: mat3x3f) -> mat3x3f {
+fn inverse3x3(m: mat3x3f) -> mat3x3f {
     let i: vec3f = m[0];
     let j: vec3f = m[1];
     let k: vec3f = m[2];
     let det: f32 = determinant(m);
-    if det == 0. return mat3x3f(0.);
+    if det == 0. { return mat3x3f(); }
     
     return transpose(
         mat3x3f(
@@ -74,7 +69,7 @@ fn inverse(m: mat3x3f) -> mat3x3f {
 }
 
 
-fn inverse(m: mat4x4f) -> mat4x4f {
+fn inverse4x4(m: mat4x4f) -> mat4x4f {
     let i: vec4f = m[0];
     let j: vec4f = m[1];
     let k: vec4f = m[2];
@@ -111,7 +106,7 @@ fn inverse(m: mat4x4f) -> mat4x4f {
     let b:   f32 = det2x2(e0.w, e1.x, e1.w, e2.x);
     let c:   f32 = fma(e0.z, e2.y, e1.y * e1.z);
     let det: f32 = a + b + c;
-    if det == 0. { return mat4x4f(0.); }
+    if det == 0. { return mat4x4f(); }
     
     let e2we1y: vec4f = vec4f(e2.ww, e1.yy);
     let e2ze1x: vec4f = vec4f(e2.zz, e1.xx);

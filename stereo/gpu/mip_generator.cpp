@@ -174,7 +174,11 @@ void MipGenerator::_init() {
     _bind_group_layout = _device.createBindGroupLayout(layout_descriptor);
     
     // load the shader + build its pipeline
-    wgpu::ShaderModule compute_shader_module = shader_from_str(_device, MIP_SHADER_SRC);
+    wgpu::ShaderModule compute_shader_module = shader_from_str(
+        _device,
+        MIP_SHADER_SRC,
+        "mipmap shader"
+    );
     
     wgpu::PipelineLayoutDescriptor pipeline_layout_descriptor;
     pipeline_layout_descriptor.bindGroupLayoutCount = 1;

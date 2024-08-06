@@ -1,3 +1,4 @@
+// #include "mat_helpers.wgsl"
 // #include "inverse.wgsl"
 
 const Tau: f32 = 6.28318530717958647692;
@@ -28,26 +29,26 @@ fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
     let trace: f32 = m[0][0] + m[1][1];
     let det:   f32 = determinant(m);
     // pick the sign of s to match the sign of the trace, so they don't cancel
-    let s:     f32 = (trace != 0 ? sign(trace) : 1.) * sqrt(det);
+    let s:     f32 = select(1., sign(trace), trace != 0.);
     let t:     f32 = sqrt(trace + 2. * s);
-    return (m + mat2x2f(s)) / t;
+    return (m + I2x2(s)) / t;
 }
 
 fn sqrt_3x3(m: mat3x3f) -> mat3x3f {
     // cholesky algorithm
     // todo: unroll this. for now, hope the compiler is smrt
-    let L: mat3x3f = mat3x3f(0.);
-    for (let i: u32 = 0; i < 3; i++) {
-        for (let j: u32 = 0; j <= i; j++) {
-            let sum: f32 = 0;
+    var L: mat3x3f = mat3x3f();
+    for (var i: u32 = 0u; i < 3; i++) {
+        for (var j: u32 = 0u; j <= i; j++) {
+            var sum: f32 = 0.;
             if j == i {
-                for (let k: u32 = 0; k < j; k++) {
+                for (var k: u32 = 0u; k < j; k++) {
                     let Lkj: f32 = L[k][j];
                     sum += Lkj * Lkj;
                 }
                 L[j][j] = sqrt(m[j][j] - sum);
             } else {
-                for (let k: u32 = 0; k < j; k++) {
+                for (var k: u32 = 0u; k < j; k++) {
                     sum += L[k][i] * L[k][j];
                 }
                 L[j][i] = (m[j][i] - sum) / L[j][j];
@@ -59,18 +60,18 @@ fn sqrt_3x3(m: mat3x3f) -> mat3x3f {
 
 fn sqrt_4x4(m: mat4x4f) -> mat4x4f {
     // cholesky algorithm
-    let L: mat4x4f = mat4x4f(0.);
-    for (let i: u32 = 0; i < 4; i++) {
-        for (let j: u32 = 0; j <= i; j++) {
-            let sum: f32 = 0.;
+    var L: mat4x4f = mat4x4f();
+    for (var i: u32 = 0u; i < 4; i++) {
+        for (var j: u32 = 0u; j <= i; j++) {
+            var sum: f32 = 0.;
             if j == i {
-                for (let k: u32 = 0; k < j; k++) {
+                for (var k: u32 = 0u; k < j; k++) {
                     let Lkj: f32 = L[k][j];
                     sum += Lkj * Lkj;
                 }
                 L[j][j] = sqrt(m[j][j] - sum);
             } else {
-                for (let k: u32 = 0; k < j; k++) {
+                for (var k: u32 = 0u; k < j; k++) {
                     sum += L[k][i] * L[k][j];
                 }
                 L[j][i] = (m[j][i] - sum) / L[j][j];
@@ -80,14 +81,14 @@ fn sqrt_4x4(m: mat4x4f) -> mat4x4f {
     return L;
 }
 
-fn transform(a: Estimate2D, dx: vec2f, F: mat2x2f) -> Estimate2D {
+fn transform2d(a: Estimate2D, dx: vec2f, F: mat2x2f) -> Estimate2D {
     return Estimate2D(
         dx + a.x,
         F  * a.sqrt_sigma,
     );
 }
 
-fn transform(a: Estimate3D, dx: vec3f, F: mat3x3f) -> Estimate3D {
+fn transform3d(a: Estimate3D, dx: vec3f, F: mat3x3f) -> Estimate3D {
     return Estimate3D(
         dx + a.x,
         F  * a.sqrt_sigma,
@@ -97,8 +98,8 @@ fn transform(a: Estimate3D, dx: vec3f, F: mat3x3f) -> Estimate3D {
 fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
     let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
     let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
-    let K: mat2x2f = S0 * inverse(S0 + S1);
-    let J: mat2x2f = mat2x2f(1.) - K;
+    let K: mat2x2f = S0 * inverse2x2(S0 + S1);
+    let J: mat2x2f = I_2x2 - K;
     let L: mat2x2f = sqrt_2x2(J);
     
     return Estimate2D(
@@ -110,9 +111,9 @@ fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
 fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
     let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
     let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
-    let s01_inv: mat2x2f = inverse(S0 + S1);
+    let s01_inv: mat2x2f = inverse2x2(S0 + S1);
     let K: mat2x2f = S0 * s01_inv;
-    let J: mat2x2f = mat2x2f(1.) - K;
+    let J: mat2x2f = I_2x2 - K;
     let L: mat2x2f = sqrt_2x2(J);
     let dx: vec2f = b.x - a.x;
     
@@ -149,9 +150,9 @@ fn update_unproject_2d_3d(
     let P:  mat3x3f = prior.sqrt_sigma       * transpose(prior.sqrt_sigma);
     let R:  mat2x2f = measurement.sqrt_sigma * transpose(measurement.sqrt_sigma);
     let HT: mat2x3f = transpose(H);
-    let S0: mat2x2f = inverse(dot(H, P * HT) + R);
+    let S0: mat2x2f = inverse2x2(dot(H, P * HT) + R);
     let K:  mat3x3f = P * HT * S0;
-    let J:  mat3x3f = mat3x3f(1.) - K * H;
+    let J:  mat3x3f = I_3x3 - K * H;
     
     let P1: mat3x3f = sqrt_3x3(J * P);
     let mu: vec3f   = prior.x + K * (measurement.x - dot(H, prior.x));

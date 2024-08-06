@@ -27,24 +27,20 @@ const CUBIC_AREA: vec4f = (vec4f(-1, 1, 1, -1) / 12. + vec4f(0, 1, 1, 0)) / 2.;
 // dot this with a vec4 of samples to get the areas of each cell in the bicubics
 // which intperpolate the cyclical signal. the cell at index 1 contains area of
 // the un-rotated signal's unit cell.
-const AREA_TRANSFORM: mat4x4f = transpose(
-    mat4x4f(
+const AREA_TRANSFORM: mat4x4f = mat4x4f(
         CUBIC_AREA.wxyz,
         CUBIC_AREA.xyzw,
         CUBIC_AREA.yzwx,
         CUBIC_AREA.zwxy,
-    )
-);
+    );
 // the matrix which transforms a vector of samples to the coefficients of the
-// interpolating cubic.
-const CUBIC_MTX: mat4x4f = transpose(
-    mat4x4f(
-        0., 2., 0., 0.,
-       -1., 0., 1., 0.,
-        2.,-5., 4.,-1.,
-       -1., 3.,-3., 1.
-    ) / 2.
-);
+// interpolating cubic. (recall wgsl matrices are column major)
+const CUBIC_MTX: mat4x4f = 0.5 * mat4x4f(
+        0., -1.,  2., -1.,
+        2.,  0., -5.,  3.,
+        0.,  1.,  4., -3.,
+        0.,  0., -1.,  1.,
+    );
 
 struct Coordinate {
     x:           i32,
@@ -92,7 +88,7 @@ fn value_or(v: f32, alt: f32) -> f32 {
 }
 
 fn bicubic(samples: mat4x4f) -> mat4x4f {
-    return cubic_mtx * samples * transpose(cubic_mtx);
+    return CUBIC_MTX * samples * transpose(CUBIC_MTX);
 }
 
 /*
@@ -150,14 +146,14 @@ fn cdf_bilinear_gradient(
 }
 
 fn cycled_bicubic(d: u32) -> mat4x4f {
-    const j: vec4u          = vec4ui(0, 1, 2, 3);
-    const J: array<vec4u,4> = array<vec4u,4>(
+    let j: vec4u          = vec4u(0, 1, 2, 3);
+    let J: array<vec4u,4> = array<vec4u,4>(
         j.wxyz,
         j.xyzw,
         j.yzwx,
         j.zwxy,
     );
-    const i: vec4u = J[d];
+    let i: vec4u = J[d];
     return mat4x4f(
         CUBIC_MTX[i.x],
         CUBIC_MTX[i.y],
@@ -166,21 +162,22 @@ fn cycled_bicubic(d: u32) -> mat4x4f {
     );
 }
 
-fn bicubic_cell(samples: mat4x4f, xy: vec2i) -> f32 {
+fn bicubic_cell(samples: mat4x4f, xy: vec2i) -> mat4x4f {
     return cycled_bicubic(xy.y) * samples * transpose(cycled_bicubic(xy.x));
 }
 
 // rootfind the normalized integral of a cubic polynomial over the unit interval.
 // `coeffs` is the coefficients of the cubic function. `y` is in [0, 1].
 // the range of the polynomial will be scaled to [0,1] before inverting.
-fn invert_normed_cubic_integral(coeffs: vec4f, y: f32) -> f32 {
-    coeffs *= INTEGRATE_CUBIC; // integrate the cubic
+fn invert_normed_cubic_integral(cs: vec4f, y_target: f32) -> f32 {
+    var coeffs: vec4f = cs * INTEGRATE_CUBIC; // integrate the cubic
+    var y: f32 = y_target;
     // bound the root on the left and the right
-    let x:    f32 = y;
-    let lo:   f32 = 0;
-    let hi:   f32 = 1;
-    let f_lo: f32 = 0;                      // f(0)
-    let f_hi: f32 = dot(coeffs, vec4f(1.)); // f(1)
+    var x:    f32 = y;
+    var lo:   f32 = 0.;
+    var hi:   f32 = 1.;
+    var f_lo: f32 = 0.;                     // f(0)
+    var f_hi: f32 = dot(coeffs, vec4f(1.)); // f(1)
     y    *= f_hi; // scale y to the integral of the cubic
     // subtract y so we can find the root of f(x) = 0
     f_lo -= y;
@@ -188,7 +185,7 @@ fn invert_normed_cubic_integral(coeffs: vec4f, y: f32) -> f32 {
     // error ~halves each iteration, and we start with ~1 bit of error.
     // this function is pretty fuzzy in the 0,1 interval, so we don't
     // need a huge amount of precision. 6 iters oughtta get us to <=1% error
-    for (let i: u32 = 0; i < 6; i++) {
+    for (var i: u32 = 0u; i < 6; i++) {
         let x2: f32 = x * x;
         // coeffs are a quartic:
         let  sv: vec4f = vec4(x, x2, x2 * x, x2 * x2);
@@ -217,13 +214,14 @@ fn invert_normed_cubic_integral(coeffs: vec4f, y: f32) -> f32 {
 
 // sample the piecewise linear cdf `cdf` at `x_01` in [0, 1].
 // return the sampled x-coordinate of the function in [0, 4].
-fn sample_cdf_vector(cdf: vec4f, x_01: f32) -> Coordinate {
+fn sample_cdf_vector(cdf_vec: vec4f, x_01: f32) -> Coordinate {
+    var cdf: vec4f = cdf_vec;
     if cdf[3] == 0. {
-        let z = modf(x_01 * 4., i);
-        return Coordinate(i32(z.whole), z.frac, 0.25 * dx);
+        let z = modf(x_01 * 4.);
+        return Coordinate(i32(z.whole), z.fract, 0.25);
     }
     cdf /= cdf[3];
-    let i: i32;
+    var i: i32;
     if x_01 >= cdf[1] {
         if x_01 >= cdf[2] {
             i = 3;
@@ -237,10 +235,10 @@ fn sample_cdf_vector(cdf: vec4f, x_01: f32) -> Coordinate {
             i = 0;
         }
     }
-    let y0:  f32 = i > 0 ? cdf[i - 1] : 0.;
+    let y0:  f32 = select(0., cdf[i - 1], i > 0);
     let rem: f32 = x_01   - y0;
     let d_i: f32 = cdf[i] - y0;
-    return Coordinate(i, rem / d_i, df_dx, 1. / d_i);
+    return Coordinate(i, rem / d_i, 1. / d_i);
 }
 
 // distribute the uniform sample `uv` over the bicubic interpolation on the unit square
@@ -255,12 +253,12 @@ fn sample_bicubic(c: mat4x4f, uv: vec2f) -> Sample {
     // find s such that g_1(s) = uv.s
     // that is, take the integral of the per-column area, and rootfind
     // for where it equals `uv.s`; pick a column.
-    let s:   f32 = invert_normed_cubic_integral(g, uv.u);
+    let s:   f32 = invert_normed_cubic_integral(g, uv.x);
     let s2:  f32 = s * s;
     //  let h(t) = f(s, t) for the chosen s.
     let h: vec4f = c * vec4(1., s, s2, s2 * s);
     // find t such that integral(h(t) dt) = uv.y; pick a "row".
-    let t:   f32 = invert_normed_cubic_integral(h, uv.v);
+    let t:   f32 = invert_normed_cubic_integral(h, uv.y);
     let t2:  f32 = t * t;
     
     return Sample(
@@ -281,7 +279,7 @@ fn sample_bicubic_patch(c: mat4x4f, uv: vec2f) -> SamplePatch {
     // find s such that g_1(s) = uv.s
     // that is, take the integral of the per-column area, and rootfind
     // for where it equals `uv.s`; pick a column.
-    let s:     f32 = invert_normed_cubic_integral(g, uv.u);
+    let s:     f32 = invert_normed_cubic_integral(g, uv.x);
     let s2:    f32 = s * s;
     let sv:  vec4f = vec4(1., s, s2, s2 * s);
     
@@ -294,7 +292,7 @@ fn sample_bicubic_patch(c: mat4x4f, uv: vec2f) -> SamplePatch {
     // let h(t) = f(s, t) for the chosen s. (this is a column slice)
     let h:   vec4f = c * sv; // <-- column slice polynomial at s
     // find t such that integral(h(t) dt) = uv.y; pick a "row".
-    let t:     f32 = invert_normed_cubic_integral(h, uv.v);
+    let t:     f32 = invert_normed_cubic_integral(h, uv.y);
     
     // find the derivatives at (s,t)
     let t2:    f32 = t * t;
@@ -321,7 +319,7 @@ fn sample_bicubic_patch(c: mat4x4f, uv: vec2f) -> SamplePatch {
 }
 
 fn sample_discrete_image(image: SampleImage, uv: vec2f) -> Coordinate2d {
-    let smp_y: Coordinate = sample_cdf_vector(image.row_cdf, uv.v);
+    let smp_y: Coordinate = sample_cdf_vector(image.row_cdf, uv.y);
     let row: i32 = smp_y.x;
     let y:   f32 = smp_y.x_remainder;
     
@@ -332,7 +330,7 @@ fn sample_discrete_image(image: SampleImage, uv: vec2f) -> Coordinate2d {
     let c0:      vec4f = select(vec4f(0.), mT[row - 1], row > 0);
     let col_cdf: vec4f = mix(c0, c1, y);
     
-    let smp_x: Coordinate = sample_cdf_vector(col_cdf, uv.u);
+    let smp_x: Coordinate = sample_cdf_vector(col_cdf, uv.x);
     let col:   i32 = smp_x.x;
     let x:     f32 = smp_x.x_remainder;
     
@@ -343,7 +341,7 @@ fn sample_discrete_image(image: SampleImage, uv: vec2f) -> Coordinate2d {
 }
 
 fn sample_discrete_image_patch(image: SampleImage, uv: vec2f) -> CoordinatePatch2d {
-    let smp_y: Coordinate = sample_cdf_vector(image.row_cdf, uv.v);
+    let smp_y: Coordinate = sample_cdf_vector(image.row_cdf, uv.y);
     let row:   i32 = smp_y.x;
     let y:     f32 = smp_y.x_remainder;
     let dy_dv: f32 = smp_y.df_dx;
@@ -356,7 +354,7 @@ fn sample_discrete_image_patch(image: SampleImage, uv: vec2f) -> CoordinatePatch
     let c0:      vec4f = select(vec4f(0.), mT[row - 1], row > 0);
     let col_cdf: vec4f = mix(c0, c1, y);
     
-    let smp_x: Coordinate = sample_cdf_vector(col_cdf, uv.u);
+    let smp_x: Coordinate = sample_cdf_vector(col_cdf, uv.x);
     let col:   i32 = smp_x.x;
     let x:     f32 = smp_x.x_remainder;
     // todo: we could also get the derivative right out of smp_x, and
@@ -413,7 +411,7 @@ fn sample_interp_image_patch(image: SampleImage, xy: vec2f) -> SamplePatch {
 
 fn eval_interp_image(image: SampleImage, st: vec2f) -> f32 {
     let xy: vec2f = st * 4.;
-    let ij: vec2f = min(max(vec2i(0), floor(xy)), vec2i(3));
+    let ij: vec2f = vec2f(min(max(vec2i(0), floor(xy)), vec2i(3)));
     let bicubic_coeffs:  mat4x4f = bicubic_cell(image.image, vec2i(ij));
     return eval_bicubic(bicubic_coeffs, xy - ij);
 }

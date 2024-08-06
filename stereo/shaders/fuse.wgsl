@@ -7,11 +7,13 @@
 //   - could also use the quantified_update formula, and incorporate this
 
 // number of invocations for samples
-override Sample_Invocations: u32 = 4;
+// @id(1000) override Sample_Invocations: u32 = 4;
 // number of samples per invocation
-override Sample_Multiple: u32 = 4;
+// @id(1001) override Sample_Multiple: u32 = 4;
 
-const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
+const Sample_Invocations: u32 = 4;
+const Sample_Multiple:    u32 = 4;
+const Sample_Count:       u32 = Sample_Invocations * Sample_Multiple * 2;
 
 // nb: each input in a different group!
 @group(0) @binding(0) var<storage,read>  samples:      array<WeightedSample>;
@@ -21,7 +23,7 @@ const Sample_Count: u32 = Sample_Invocations * Sample_Multiple * 2;
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let feature_idx: u32 = global_id.x;
-    if feature_idx >= u32(src_features.length()) { return; }
+    if feature_idx >= arrayLength(src_features) { return; }
     
     // compute the "frequency weighted" covariance and mean of the sample set
     // see https://stats.stackexchange.com/questions/193046/online-weighted-covariance
@@ -30,8 +32,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     // image registration.
     let mu:   vec2f = vec2f(0.);
     let w_sum:  f32 = 0.;
-    let running_cov = mat2x2f(0.);
-    for (let i: i32 = 0; i < Sample_Count; i++) {
+    let running_cov = mat2x2f(); // zero matrix
+    for (var i: i32 = 0; i < Sample_Count; i++) {
         let sample_index: i32 = feature_idx * Sample_Count + i;
         let sample: WeightedSample = samples[sample_index];
         let w: f32 = sample.w;
@@ -68,7 +70,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     // fused estimates:
     let a_post: Estimate2D = update(a_prior, a_update);
     let b_post: Estimate2D = update(b_prior, b_update);
-    let updated_feature: FeaturePair(
+    let updated_feature = FeaturePair(
         src_feature.id,
         src_feature.depth,
         src_feature.parent,

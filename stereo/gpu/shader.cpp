@@ -37,10 +37,14 @@ wgpu::ShaderModule shader_from_file(wgpu::Device device, const char* fpath) {
         std::cerr << "empty shader file" << std::endl;
         return nullptr;
     }
-    return shader_from_str(device, src.c_str());
+    return shader_from_str(device, src.c_str(), fpath);
 }
 
-wgpu::ShaderModule shader_from_str(wgpu::Device device, const char* source) {
+wgpu::ShaderModule shader_from_str(
+        wgpu::Device device,
+        const char* source,
+        const char* label)
+{
     wgpu::ShaderModuleWGSLDescriptor shader_code {};
 	shader_code.chain.next = nullptr;
 	shader_code.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
@@ -50,6 +54,7 @@ wgpu::ShaderModule shader_from_str(wgpu::Device device, const char* source) {
 	shader_module.nextInChain = &shader_code.chain;
 	shader_module.hintCount = 0;
 	shader_module.hints = nullptr;
+    shader_module.label = label;
 	return device.createShaderModule(shader_module);
 }
 

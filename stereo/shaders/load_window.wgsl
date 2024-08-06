@@ -2,7 +2,7 @@
 
 // sample the window around each feature in a pair
 
-@group(0) @binding(0) var<storage,write> window_pairs: array<WindowPair>;
+@group(0) @binding(0) var<storage,read_write> window_pairs: array<WindowPair>;
 @group(0) @binding(1) var tex_sampler: sampler;
 
 @group(1) @binding(0) var tex_a: texture_2d<f32>;
@@ -16,14 +16,12 @@ fn main(
         @builtin(global_invocation_id) global_id: vec3u)
 {
     let feature_idx: u32 = global_id.z;
-    if feature_idx >= u32(features.length()) {
-        return;
-    }
+    // if feature_idx >= arrayLength(features) { return; } // xxx why not work?
     let feature: FeaturePair = features[feature_idx];
-    let xy:       vec2u = local_id.xy
+    let xy:       vec2u = local_id.xy;
     let st:       vec2f = vec2f(xy) / vec2f(2.) - vec2f(1.);
-    let coords_a: vec2u = vec2u(feature.a.st) + feature.a.basis * xy;
-    let coords_b: vec2u = vec2u(feature.b.st) + feature.b.basis * xy;
+    let coords_a: vec2f = feature.a.st + feature.a.basis * st;
+    let coords_b: vec2f = feature.b.st + feature.b.basis * st;
     
     let a: vec3f = textureSampleGrad(
         tex_a,
