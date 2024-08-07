@@ -1,5 +1,6 @@
-// #include "sample.wgsl"
 // #include "structs.wgsl"
+// #include "sample.wgsl"
+// #include "inverse.wgsl"
 
 // todo: quality estimate
 // todo: figure out how to estimate an update to the feature bases
@@ -64,78 +65,6 @@ struct Covariance {
     inv_sqrt_cov: mat2x2f,
     i_sqrt_det:   f32, // 1 / determinant(sqrt_cov)
 }
-  
-// todo: precompute a longer array in an LD sequence, length 32 probably
-// see https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
-const uniform_2d_samples: array<vec2f, 32> = array<vec2f, 32>(
-    vec2f(0.25487765, 0.06984026),
-    vec2f(0.00975529, 0.63968052),
-    vec2f(0.76463294, 0.20952078),
-    vec2f(0.51951058, 0.77936104),
-    vec2f(0.27438823, 0.34920130),
-    vec2f(0.02926587, 0.91904155),
-    vec2f(0.78414352, 0.48888181),
-    vec2f(0.53902116, 0.05872207),
-    vec2f(0.29389881, 0.62856233),
-    vec2f(0.04877645, 0.19840259),
-    vec2f(0.80365410, 0.76824285),
-    vec2f(0.55853174, 0.33808311),
-    vec2f(0.31340939, 0.90792337),
-    vec2f(0.06828703, 0.47776363),
-    vec2f(0.82316468, 0.04760389),
-    vec2f(0.57804232, 0.61744415),
-    vec2f(0.33291997, 0.18728440),
-    vec2f(0.08779761, 0.75712466),
-    vec2f(0.84267526, 0.32696492),
-    vec2f(0.59755290, 0.89680518),
-    vec2f(0.35243055, 0.46664544),
-    vec2f(0.10730819, 0.03648570),
-    vec2f(0.86218584, 0.60632596),
-    vec2f(0.61706348, 0.17616622),
-    vec2f(0.37194113, 0.74600648),
-    vec2f(0.12681877, 0.31584674),
-    vec2f(0.88169642, 0.88568700),
-    vec2f(0.63657406, 0.45552726),
-    vec2f(0.39145171, 0.02536751),
-    vec2f(0.14632935, 0.59520777),
-    vec2f(0.90120700, 0.16504803),
-    vec2f(0.65608464, 0.73488829),
-);
-
-const unit_gaussian_2d_samples: array<Sample, 32> = array<Sample, 32>(
-    vec2f( 1.49680485,  0.70250879),
-    vec2f(-1.94438832, -2.34077875),
-    vec2f( 0.18432872,  0.70904280),
-    vec2f( 0.20993119, -1.12501782),
-    vec2f(-0.93875604,  1.30581763),
-    vec2f( 2.32109218, -1.29429425),
-    vec2f(-0.69567017,  0.04867707),
-    vec2f( 1.03693719,  0.40095157),
-    vec2f(-1.08153675, -1.13106932),
-    vec2f( 0.78293964,  2.32981132),
-    vec2f( 0.07562191, -0.65685157),
-    vec2f(-0.56730032,  0.91818190),
-    vec2f( 1.27541851, -0.83294516),
-    vec2f(-2.29433307,  0.32265550),
-    vec2f( 0.59615865,  0.18382840),
-    vec2f(-0.77464361, -0.70437466),
-    vec2f( 0.56942901,  1.36947322),
-    vec2f( 0.09870982, -2.20356491),
-    vec2f(-0.27204781,  0.51801276),
-    vec2f( 0.80885454, -0.61284520),
-    vec2f(-1.41263111,  0.30046092),
-    vec2f( 2.05756548,  0.48013004),
-    vec2f(-0.42750802, -0.33735111),
-    vec2f( 0.43967841,  0.87877736),
-    vec2f(-0.03528644, -1.40598516),
-    vec2f(-0.81701037,  1.86077577),
-    vec2f( 0.37784344, -0.33022613),
-    vec2f(-0.91356122,  0.26213528),
-    vec2f( 1.35223314,  0.21737472),
-    vec2f(-1.62010006, -1.10411344),
-    vec2f( 0.23206277,  0.39266713),
-    vec2f(-0.08704357, -0.91397722),
-);
 
 // todo: wgpu support for constants is still in progress
 // number of invocations for samples
@@ -146,28 +75,23 @@ const unit_gaussian_2d_samples: array<Sample, 32> = array<Sample, 32>(
 const Sample_Invocations: u32 = 4;
 const Sample_Multiple:    u32 = 4;
 const Sample_Count:       u32 = Sample_Invocations * Sample_Multiple * 2;
-const Wg_Width:           i32 = 64 / Sample_Invocations;
+const Wg_Width:           u32 = 64 / Sample_Invocations;
 const Tau:                f32 = 6.28318530717958647692;
 
-@group(0) @binding(0) var<storage,read>  correlations: array<CorrelationWindow>;
-@group(0) @binding(1) var<storage,write> dst_samples:  array<WeightedSample>;
+@group(0) @binding(0) var<storage,read> correlations:      array<CorrelationWindow>;
+@group(0) @binding(1) var<storage,read_write> dst_samples: array<WeightedSample>;
 
-@group(1) @binding(0) var<storage,read>  src_features: array<FeaturePair>;
+@group(1) @binding(0) var<storage,read> src_features: array<FeaturePair>;
+
+@group(2) @binding(0) var<storage,read> uniform_2d_samples:       array<vec2f>;
+@group(2) @binding(1) var<storage,read> unit_gaussian_2d_samples: array<vec2f>;
 
 // xy is in [0, 1]^2 -> [-1, 1]^2
 fn corr_to_displacement(xy: vec2f) -> vec2f {
     // cut up the square into 4 quadrants
     let uv = modf(xy * 2);
     // map to [-1, 1]
-    return vec2f(uv.x.fract, uv.y.fract) - vec2f(uv.x.whole, uv.y.whole);
-}
-
-fn gauss_sample(sample_index: u32, cov: Covariance) -> Sample {
-    let sample: Sample = unit_gaussian_2d_samples[sample_index];
-    return Sample(
-        cov.sqrt_cov * sample.st,
-        sample.pdf * cov.i_sqrt_det / Tau,
-    );
+    return vec2f(uv.fract.x, uv.fract.y) - vec2f(uv.whole.x, uv.whole.y);
 }
 
 fn gauss_pdf(x: vec2f, cov: Covariance) -> f32 {
@@ -198,18 +122,18 @@ fn main(
     );
     
     let pop_base: u32 = feature_idx * Sample_Count;
-    for (var i: i32 = 0; i < Sample_Multiple; i++) {
+    for (var i: u32 = 0u; i < Sample_Multiple; i++) {
         // we do a kind of "MIS" here— we want the mean and covariance of the joint
         // probability distributions. distribution A is already "weighted" by nature
         // of being importance sampled, so we need only multiply in the pdf of the
         // other distribution.
         let sample_id:         u32 = pop_base + chunk_idx * Sample_Multiple * 2 + i;
-        let gaus_sample:    Sample = gauss_sample(sample_id, cov);
-        let xcor_sample:    Sample = sample_interp_image(img, uniform_2d_samples[sample_id]);
-        xcor_sample.st             = corr_to_displacement(xcor_sample.st);
-        let pdf_xcor_at_gaus:  f32 = gauss_pdf(xcor_sample.st, cov);
-        let pdf_gaus_at_xcor:  f32 = eval_interp_image(img, gaus_sample.st);
-        dst_samples[sample_id]     = WeightedSample(xcor_sample.st, pdf_gaus_at_xcor);
-        dst_samples[sample_id + 1] = WeightedSample(gaus_sample.st, pdf_xcor_at_gaus);
+        let gaus_sample:     vec2f = cov.sqrt_cov * unit_gaussian_2d_samples[sample_id];
+        var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[sample_id]).st;
+        xcor_sample                = corr_to_displacement(xcor_sample);
+        let pdf_xcor_at_gaus:  f32 = gauss_pdf(xcor_sample, cov);
+        let pdf_gaus_at_xcor:  f32 = eval_interp_image(img, gaus_sample);
+        dst_samples[sample_id]     = WeightedSample(xcor_sample, pdf_gaus_at_xcor);
+        dst_samples[sample_id + 1] = WeightedSample(gaus_sample, pdf_xcor_at_gaus);
     }
 }

@@ -25,7 +25,9 @@ g = phi(d)
 alpha = np.zeros(d)
 seed = 0.5 # any real number
 for j in range(d):
-  alpha[j] = pow(1/g,j+1) % 1
+  # 1 / g^1, 1 / g^2, 1 / g^3, ...
+  alpha[j] = pow(1 / g, j + 1) % 1
+
 u = np.zeros((n, d))
 
 # This number can be any real number. 
@@ -33,6 +35,7 @@ u = np.zeros((n, d))
 # But seed = 0.5 might be marginally better. 
 for i in range(n): 
   u[i] = (seed + alpha*(i+1)) % 1
+
 print(u)
 
 # generate gaussian samples too

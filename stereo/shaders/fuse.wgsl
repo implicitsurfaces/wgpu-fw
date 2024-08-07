@@ -30,17 +30,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     // this is a best guess of the distribution of the displacement between the
     // feature endpoints, accounting for both prior predictions and the actual
     // image registration.
-    let mu:   vec2f = vec2f(0.);
-    let w_sum:  f32 = 0.;
-    let running_cov = mat2x2f(); // zero matrix
-    for (var i: i32 = 0; i < Sample_Count; i++) {
-        let sample_index: i32 = feature_idx * Sample_Count + i;
+    var mu:   vec2f = vec2f(0.);
+    var w_sum:  f32 = 0.;
+    var running_cov = mat2x2f(); // zero matrix
+    for (var i: u32 = 0u; i < Sample_Count; i++) {
+        let sample_index: u32 = feature_idx * Sample_Count + i;
         let sample: WeightedSample = samples[sample_index];
         let w: f32 = sample.w;
         w_sum += w;
         let dx: vec2f = sample.x - mu;
         mu += dx * w / w_sum;
-        running_cov += w * dot(dx, transpose(dx));
+        running_cov += w * dx * transpose(dx);
     }
     let est_sqrt_cov: mat2x2f = sqrt_2x2(running_cov / (w_sum - 1));
     

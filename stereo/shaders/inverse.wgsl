@@ -33,7 +33,7 @@ fn inverse2x2(m: mat2x2f) -> mat2x2f {
   let det: f32 = determinant(m);
   if det == 0. { return mat2x2f(); }
   // don't forget: column major
-  return mat2x2f(d, -c, -b,  a) / det;
+  return mat2x2f(d, -c, -b,  a) * (1. / det);
 }
 
 
@@ -65,7 +65,7 @@ fn inverse3x3(m: mat3x3f) -> mat3x3f {
                 vec3f(i.y, j.x, i.x),
             ),
         )
-    ) / det;
+    ) * (1. / det);
 }
 
 
@@ -122,5 +122,5 @@ fn inverse4x4(m: mat4x4f) -> mat4x4f {
              cofac(i.yxwz, e2ze1x, j.yxwz, e2xe0z, l.yxwz, e1ze0x),
             -cofac(i.yxwz, e2ye0w, j.yxwz, e1we0y, k.yxwz, e1ze0x),
         )
-    ) / det;
+    ) * (1. / det);
 }

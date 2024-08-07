@@ -125,14 +125,15 @@ fn cdf_bilinear_gradient(
     smp_x: Coordinate,
     smp_y: Coordinate) -> vec2f
 {
+    var mcc: mat4x4f = marginal_col_cdf;
     let i:    i32 = smp_x.x;
     let j:    i32 = smp_y.x;
     let x:    f32 = smp_x.x_remainder;
     let y:    f32 = smp_y.x_remainder;
-    let F_11: f32 = marginal_col_cdf[i][j];
-    let F_00: f32 = select(0., marginal_col_cdf[i - 1][j - 1], i > 0 && j > 0);
-    let F_01: f32 = select(0., marginal_col_cdf[i - 1][j    ], i > 0);
-    let F_10: f32 = select(0., marginal_col_cdf[i    ][j - 1], j > 0);
+    let F_11: f32 = mcc[i][j];
+    let F_00: f32 = select(0., mcc[i - 1][j - 1], i > 0 && j > 0);
+    let F_01: f32 = select(0., mcc[i - 1][j    ], i > 0);
+    let F_10: f32 = select(0., mcc[i    ][j - 1], j > 0);
     let dy_0: f32 = F_01;
     let dy_1: f32 = F_11;
     let dx_0: f32 = F_10 - F_00;
@@ -146,24 +147,33 @@ fn cdf_bilinear_gradient(
 }
 
 fn cycled_bicubic(d: u32) -> mat4x4f {
-    let j: vec4u          = vec4u(0, 1, 2, 3);
-    let J: array<vec4u,4> = array<vec4u,4>(
+    var j: vec4u          = vec4u(0, 1, 2, 3);
+    var J: array<vec4u,4> = array<vec4u,4>(
         j.wxyz,
         j.xyzw,
         j.yzwx,
         j.zwxy,
     );
+    // the global bicubic matrix is `const`, and so cannot be indexed by
+    // a non-const expression. I do not understand this bizarre limitation.
+    // but we copy it down here so we can index it:
+    var C: mat4x4f = 0.5 * mat4x4f(
+        0., -1.,  2., -1.,
+        2.,  0., -5.,  3.,
+        0.,  1.,  4., -3.,
+        0.,  0., -1.,  1.,
+    );
     let i: vec4u = J[d];
     return mat4x4f(
-        CUBIC_MTX[i.x],
-        CUBIC_MTX[i.y],
-        CUBIC_MTX[i.z],
-        CUBIC_MTX[i.w],
+        C[i.x],
+        C[i.y],
+        C[i.z],
+        C[i.w],
     );
 }
 
 fn bicubic_cell(samples: mat4x4f, xy: vec2i) -> mat4x4f {
-    return cycled_bicubic(xy.y) * samples * transpose(cycled_bicubic(xy.x));
+    return cycled_bicubic(u32(xy.y)) * samples * transpose(cycled_bicubic(u32(xy.x)));
 }
 
 // rootfind the normalized integral of a cubic polynomial over the unit interval.
@@ -325,7 +335,7 @@ fn sample_discrete_image(image: SampleImage, uv: vec2f) -> Coordinate2d {
     
     // get this (interpolated) row's cdf for choosing columns
     // (access a row as a vec3— wgsl is column-major!)
-    let mT:    mat4x4f = transpose(image.marginal_col_cdf);
+    var mT:    mat4x4f = transpose(image.marginal_col_cdf);
     let c1:      vec4f = mT[row];
     let c0:      vec4f = select(vec4f(0.), mT[row - 1], row > 0);
     let col_cdf: vec4f = mix(c0, c1, y);
@@ -349,7 +359,7 @@ fn sample_discrete_image_patch(image: SampleImage, uv: vec2f) -> CoordinatePatch
     
     // get this (interpolated) row's cdf for choosing columns
     // (access a row as a vec3— wgsl is column-major!)
-    let mT:    mat4x4f = transpose(image.marginal_col_cdf);
+    var mT:    mat4x4f = transpose(image.marginal_col_cdf);
     let c1:      vec4f = mT[row];
     let c0:      vec4f = select(vec4f(0.), mT[row - 1], row > 0);
     let col_cdf: vec4f = mix(c0, c1, y);
@@ -384,7 +394,7 @@ fn sample_interp_image(image: SampleImage, st: vec2f) -> Sample {
     let sample: Sample = sample_bicubic(bicubic_coeffs, smp2d.x_remainder);
     return Sample(
         // sample point on [0,1]^2
-        (vec2f(smp2d.x) + sample.st) / 4.,
+        (vec2f(smp2d.x) + sample.st) * 0.25,
         // (normalized) pdf at the point
         sample.pdf / image.row_cdf[3],
     );
@@ -405,24 +415,24 @@ fn sample_interp_image_patch(image: SampleImage, xy: vec2f) -> SamplePatch {
         sample.pdf / image.row_cdf[3],
         // jacobian of the remapping at the sample point
         // (using multivariate chain rule)
-        sample.J * smp2d.J / 4.,
+        sample.J * smp2d.J * 0.25,
     );
 }
 
 fn eval_interp_image(image: SampleImage, st: vec2f) -> f32 {
     let xy: vec2f = st * 4.;
-    let ij: vec2f = vec2f(min(max(vec2i(0), floor(xy)), vec2i(3)));
+    let ij: vec2f = vec2f(min(max(vec2f(0), floor(xy)), vec2f(3)));
     let bicubic_coeffs:  mat4x4f = bicubic_cell(image.image, vec2i(ij));
     return eval_bicubic(bicubic_coeffs, xy - ij);
 }
 
 fn make_sample_image(image: mat4x4f) -> SampleImage {
-    let areas:    mat4x4f = dot(AREA_TRANSFORM, image * transpose(AREA_TRANSFORM));
-    let marginal: mat4x4f = areas;
+    var areas:    mat4x4f = AREA_TRANSFORM * image * transpose(AREA_TRANSFORM);
+    var marginal: mat4x4f = areas;
     areas[1] += areas[0];
     areas[2] += areas[1];
     areas[3] += areas[2];
-    let cdf: vec4f = areas[3];
+    var cdf: vec4f = areas[3];
     cdf[1] += cdf[0];
     cdf[2] += cdf[1];
     cdf[3] += cdf[2];

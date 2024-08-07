@@ -147,15 +147,18 @@ fn update_unproject_2d_3d(
         measurement: Estimate2D,
         H:           mat3x2f) -> Estimate3D
 {
+    // recall that because of the column major convention, the matrix
+    // row and column counts are reversed from the usual convention.
     let P:  mat3x3f = prior.sqrt_sigma       * transpose(prior.sqrt_sigma);
     let R:  mat2x2f = measurement.sqrt_sigma * transpose(measurement.sqrt_sigma);
     let HT: mat2x3f = transpose(H);
-    let S0: mat2x2f = inverse2x2(dot(H, P * HT) + R);
-    let K:  mat3x3f = P * HT * S0;
+    let S0: mat2x2f = inverse2x2(H * P * HT + R);
+    //  (3x2) = (3x3) * (3x2) * (2x2)
+    let K:  mat2x3f = P * HT * S0;
     let J:  mat3x3f = I_3x3 - K * H;
     
     let P1: mat3x3f = sqrt_3x3(J * P);
-    let mu: vec3f   = prior.x + K * (measurement.x - dot(H, prior.x));
+    let mu: vec3f   = prior.x + K * (measurement.x - H * prior.x);
     
     return Estimate3D(
         mu,

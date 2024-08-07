@@ -24,7 +24,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let b_1: cmat4 = cmat4(window_b.b, mat4x4f());
     
     var xcor:  mat4x4f = correlation_windows[feature_idx].correlation;
-    let xcors: array<mat4x4f, 2> = array<mat4x4f, 2>(
+    var xcors: array<mat4x4f, 2> = array<mat4x4f, 2>(
         normed_cross_correlation(a_0, b_0),
         normed_cross_correlation(a_1, b_1),
     );
@@ -34,7 +34,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         // renormalize the correlation
         let area:   f32     = dot(vec4f(1.), xcor_i * vec4f(1.));
         // update the correlation
-        xcor = xcor_i / area;
+        xcor = xcor_i * (1. / area);
     }
     
     // write back the correlation

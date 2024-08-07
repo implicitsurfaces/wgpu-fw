@@ -88,6 +88,10 @@ public:
         q.release();
     }
     
+    void submit_write(const std::vector<T>& data) {
+        submit_write(data.data(), range1i(0, data.size()));
+    }
+    
     size_t size() const {
         return _size;
     }
