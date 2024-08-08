@@ -12,7 +12,6 @@ struct Uniforms {
     n:       u32,
 }
 
-
 @group(0) @binding(0) var<storage,read> correlation_windows: array<CorrelationWindow>;
 @group(0) @binding(1) var<storage,read> uniforms: Uniforms;
 

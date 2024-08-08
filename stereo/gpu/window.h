@@ -12,7 +12,6 @@ struct Window {
     wgpu::Device         device         = nullptr;
     wgpu::Queue          queue          = nullptr;
     wgpu::Surface        surface        = nullptr;
-    wgpu::RenderPipeline pipeline       = nullptr;
 	wgpu::TextureFormat  surface_format = wgpu::TextureFormat::Undefined;
     
     Window(wgpu::Instance instance, wgpu::Device device);
