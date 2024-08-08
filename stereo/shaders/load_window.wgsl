@@ -10,7 +10,7 @@
 
 @group(2) @binding(0) var<storage,read> features: array<FeaturePair>;
 
-@compute @workgroup_size(4,4,32)
+@compute @workgroup_size(4,4,16)
 fn main(
         @builtin(local_invocation_id)  local_id:  vec3u,
         @builtin(global_invocation_id) global_id: vec3u)

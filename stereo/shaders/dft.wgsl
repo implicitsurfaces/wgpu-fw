@@ -54,7 +54,7 @@ fn complex_mod2(m: cmat4) -> mat4x4f {
 }
 
 fn conj(m: cmat4) -> cmat4 {
-    return cmat4(m.real, -m.imag);
+    return cmat4(m.real, -1. * m.imag);
 }
 
 fn add(m0: cmat4, m1: cmat4) -> cmat4 {

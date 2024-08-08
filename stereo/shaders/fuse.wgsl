@@ -16,14 +16,13 @@ const Sample_Multiple:    u32 = 4;
 const Sample_Count:       u32 = Sample_Invocations * Sample_Multiple * 2;
 
 // nb: each input in a different group!
-@group(0) @binding(0) var<storage,read>  samples:      array<WeightedSample>;
-@group(1) @binding(0) var<storage,read>  src_features: array<FeaturePair>;
-@group(2) @binding(0) var<storage,write> dst_features: array<FeaturePair>;
+@group(0) @binding(0) var<storage,read>       samples:      array<WeightedSample>;
+@group(1) @binding(0) var<storage,read>       src_features: array<FeaturePair>;
+@group(2) @binding(0) var<storage,read_write> dst_features: array<FeaturePair>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let feature_idx: u32 = global_id.x;
-    if feature_idx >= arrayLength(src_features) { return; }
     
     // compute the "frequency weighted" covariance and mean of the sample set
     // see https://stats.stackexchange.com/questions/193046/online-weighted-covariance
@@ -40,9 +39,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         w_sum += w;
         let dx: vec2f = sample.x - mu;
         mu += dx * w / w_sum;
-        running_cov += w * dx * transpose(dx);
+        running_cov += w * outer2x2(dx);
     }
-    let est_sqrt_cov: mat2x2f = sqrt_2x2(running_cov / (w_sum - 1));
+    let k: f32 = 1. / w_sum;
+    let est_sqrt_cov: mat2x2f = sqrt_2x2(k * running_cov);
     
     let src_feature: FeaturePair = src_features[feature_idx];
     

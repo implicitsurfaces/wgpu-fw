@@ -22,3 +22,27 @@ fn I3x3(s: f32) -> mat3x3f {
 fn I4x4(s: f32) -> mat4x4f {
     return s * I_4x4;
 }
+
+fn outer2x2(v: vec2f) -> mat2x2f {
+    return mat2x2f(
+        v * v.x,
+        v * v.y,
+    );
+}
+
+fn outer3x3(v: vec3f) -> mat3x3f {
+    return mat3x3f(
+        v * v.x,
+        v * v.y,
+        v * v.z,
+    );
+}
+
+fn outer4x4(v: vec4f) -> mat4x4f {
+    return mat4x4f(
+        v * v.x,
+        v * v.y,
+        v * v.z,
+        v * v.w,
+    );
+}

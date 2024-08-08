@@ -31,10 +31,11 @@ fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
     // pick the sign of s to match the sign of the trace, so they don't cancel
     let s:     f32 = select(1., sign(trace), trace != 0.);
     let t:     f32 = sqrt(trace + 2. * s);
-    return (m + I2x2(s)) / t;
+    return (m + I2x2(s)) * (1. / t);
 }
 
-fn sqrt_3x3(m: mat3x3f) -> mat3x3f {
+fn sqrt_3x3(m_: mat3x3f) -> mat3x3f {
+    var m: mat3x3f = m_;
     // cholesky algorithm
     // todo: unroll this. for now, hope the compiler is smrt
     var L: mat3x3f = mat3x3f();
@@ -58,7 +59,8 @@ fn sqrt_3x3(m: mat3x3f) -> mat3x3f {
     return L;
 }
 
-fn sqrt_4x4(m: mat4x4f) -> mat4x4f {
+fn sqrt_4x4(m_: mat4x4f) -> mat4x4f {
+    var m: mat4x4f = m_;
     // cholesky algorithm
     var L: mat4x4f = mat4x4f();
     for (var i: u32 = 0u; i < 4; i++) {
