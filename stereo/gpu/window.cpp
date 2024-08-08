@@ -24,7 +24,6 @@ Window::~Window() {
     if (device)   device.release();
     if (queue)    queue.release();
     if (surface)  surface.release();
-    if (pipeline) pipeline.release();
     if (window)   glfwDestroyWindow(window);
 }
 

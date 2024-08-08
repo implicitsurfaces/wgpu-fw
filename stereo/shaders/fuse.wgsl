@@ -1,6 +1,10 @@
 // #include "structs.wgsl"
 // #include "kalman.wgsl"
 
+// xxx todo: we should just output the fused difference.
+//   - this will be used in different ways depending on the solver stage
+//   - the L/R registration will Kalman un-project the difference to the original state
+//   - the time registration will do a Kalman update of the current estimate only
 // todo: could do basis-conditioning steps on both parent and child;
 //   ensure: child < min_size(updated parent cov) < parent < max_size(updated parent cov)
 // todo: need to figure and store the "quality" estimate (probs the normalization factor).

@@ -2,6 +2,8 @@
 #include <thread>
 #include <chrono>
 
+#include <stereo/gpu/render_pipeline.h>
+#include <stereo/gpu/shader.h>
 #include <stereo/gpu/window.h>
 #include <stereo/app/solver.h>
 
@@ -51,79 +53,46 @@ struct Viewer {
     Window                window;
     StereoSolver*         solver;
     wgpu::BindGroupLayout bind_layout = nullptr;
+    wgpu::BindGroup       bind_group = nullptr;
+    RenderPipeline        pipeline;
     
     Viewer(StereoSolver* solver):
         window(solver->instance(), solver->device()),
-        solver(solver)
+        solver(solver),
+        bind_layout(create_bind_group_layout()),
+        pipeline(
+            solver->device(),
+            shader_from_str(solver->device(), WGSL_SHD_SRC, "filter visualizer shader"),
+            wgpu::PrimitiveTopology::TriangleStrip,
+            {window.surface_format},
+            {bind_layout}
+        )
     {
-        init();
+        _init();
     }
     
     ~Viewer() {
-        if (bind_layout) bind_layout.release();
+        _release();
     }
     
-    void init() {
-        wgpu::ShaderModuleDescriptor shd_dsc;
-        shd_dsc.hintCount = 0;
-        shd_dsc.hints     = nullptr;
+    void _init() {
+        wgpu::BindGroupEntry bind_entry = {};
+        bind_entry.binding     = 0;
+        bind_entry.textureView = solver->frame_source(0).filtered.laplace.view();
         
-        // load shader
-        wgpu::ShaderModuleWGSLDescriptor wgsl_dsc;
-        wgsl_dsc.chain.next  = nullptr;
-        wgsl_dsc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
-        shd_dsc.nextInChain  = &wgsl_dsc.chain;
-        wgsl_dsc.code        = WGSL_SHD_SRC;
-        wgpu::ShaderModule shd = window.device.createShaderModule(shd_dsc);
+        wgpu::BindGroupDescriptor bgd;
+        bgd.layout     = bind_layout;
+        bgd.entryCount = 1;
+        bgd.entries    = &bind_entry;
         
-        // set up vertex shader
-        wgpu::RenderPipelineDescriptor pl_dsc;
-        pl_dsc.vertex.bufferCount   = 0;
-        pl_dsc.vertex.buffers       = nullptr;
-        pl_dsc.vertex.module        = shd;
-        pl_dsc.vertex.entryPoint    = "vs_main";
-        pl_dsc.vertex.constantCount = 0;
-        pl_dsc.vertex.constants     = nullptr;
-        
-        // define geometry type
-        pl_dsc.primitive.topology = wgpu::PrimitiveTopology::TriangleStrip;
-        pl_dsc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
-        pl_dsc.primitive.frontFace = wgpu::FrontFace::CCW;
-        pl_dsc.primitive.cullMode  = wgpu::CullMode::None;
-        
-        // set up fragment shader
-        wgpu::FragmentState frg_state;
-        frg_state.module        = shd;
-        frg_state.entryPoint    = "fs_main";
-        frg_state.constantCount = 0;
-        frg_state.constants     = nullptr;
-        
-        // blend state
-        wgpu::BlendState blend;
-        blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-        blend.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-        blend.color.operation = wgpu::BlendOperation::Add;
-        blend.alpha.srcFactor = wgpu::BlendFactor::Zero;
-        blend.alpha.dstFactor = wgpu::BlendFactor::One;
-        blend.alpha.operation = wgpu::BlendOperation::Add;
-        
-        // output format
-        wgpu::ColorTargetState target;
-        target.format         = window.surface_format;
-        target.blend          = &blend;
-        target.writeMask      = wgpu::ColorWriteMask::All;
-        frg_state.targetCount = 1;
-        frg_state.targets     = &target;
-        pl_dsc.fragment       = &frg_state;
-        
-        // depth/stencil state
-        pl_dsc.depthStencil      = nullptr;
-        pl_dsc.multisample.count = 1;
-        pl_dsc.multisample.mask  = ~0u;
-        pl_dsc.multisample.alphaToCoverageEnabled = false;
-        pl_dsc.layout = nullptr;
-        
-        // define texture and uniform binding layout
+        bind_group = window.device.createBindGroup(bgd);
+    }
+    
+    void _release() {
+        release_all(bind_layout, bind_group);
+    }
+    
+    wgpu::BindGroupLayout create_bind_group_layout() {
         std::array<wgpu::BindGroupLayoutEntry, 1> bind_entries;
         bind_entries[0].binding               = 0;
         bind_entries[0].texture.sampleType    = wgpu::TextureSampleType::Float;
@@ -133,15 +102,7 @@ struct Viewer {
         wgpu::BindGroupLayoutDescriptor bind_layout_dsc {};
         bind_layout_dsc.entryCount = bind_entries.size();
         bind_layout_dsc.entries    = bind_entries.data();
-        bind_layout = window.device.createBindGroupLayout(bind_layout_dsc);
-        
-        wgpu::PipelineLayoutDescriptor pl_layout_dsc;
-        pl_layout_dsc.bindGroupLayoutCount = 1;
-        pl_layout_dsc.bindGroupLayouts     = (WGPUBindGroupLayout*) &bind_layout;
-        pl_dsc.layout = window.device.createPipelineLayout(pl_layout_dsc);
-        
-        window.pipeline = window.device.createRenderPipeline(pl_dsc);
-        shd.release();
+        return window.device.createBindGroupLayout(bind_layout_dsc);
     }
     
     void do_frame() {
@@ -157,7 +118,8 @@ struct Viewer {
         // Create the render pass that clears the screen with our color
         wgpu::RenderPassDescriptor pass_desc;
         
-        // The attachment part of the render pass descriptor describes the target texture of the pass
+        // The attachment part of the render pass descriptor
+        // describes the target texture of the pass
         wgpu::RenderPassColorAttachment render_attachment = {};
         render_attachment.view          = target_view;
         render_attachment.resolveTarget = nullptr;
@@ -173,34 +135,7 @@ struct Viewer {
         wgpu::RenderPassEncoder render_pass = encoder.beginRenderPass(pass_desc);
         
         // select which render pipeline to use
-        render_pass.setPipeline(window.pipeline);
-        
-        // bind the texture to the fragment shader
-        // wgpu::TextureView tex_view = solver->frame_source(0).mip.views[0];
-        
-        // make a texture view
-        wgpu::Texture src_tex = solver->frame_source(0).filtered.laplace.texture();
-        wgpu::TextureViewDescriptor view_desc = wgpu::Default;
-        view_desc.aspect           = wgpu::TextureAspect::All;
-        view_desc.baseArrayLayer   = 0;
-        view_desc.arrayLayerCount  = 1;
-        view_desc.baseMipLevel     = 0;
-        view_desc.mipLevelCount    = src_tex.getMipLevelCount();
-        view_desc.label            = "presentation texture view";
-        view_desc.dimension        = wgpu::TextureViewDimension::_2D;
-        view_desc.format           = src_tex.getFormat();
-        wgpu::TextureView tex_view = src_tex.createView(view_desc);
-        
-        wgpu::BindGroupEntry bind_entry = {};
-        bind_entry.binding     = 0;
-        bind_entry.textureView = tex_view;
-        
-        wgpu::BindGroupDescriptor bgd;
-        bgd.layout     = bind_layout;
-        bgd.entryCount = 1;
-        bgd.entries    = &bind_entry;
-        
-        wgpu::BindGroup bind_group = window.device.createBindGroup(bgd);
+        render_pass.setPipeline(pipeline.pipeline());
         render_pass.setBindGroup(0, bind_group, 0, nullptr);
         
         // draw one quad
@@ -218,7 +153,7 @@ struct Viewer {
         command.release();
         
         target_view.release();
-        bind_group.release();
+        // bind_group.release();
         
     #if not defined(__EMSCRIPTEN__)
         window.surface.present();

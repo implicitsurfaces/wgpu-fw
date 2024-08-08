@@ -419,10 +419,10 @@ fn sample_interp_image_patch(image: SampleImage, xy: vec2f) -> SamplePatch {
     );
 }
 
-fn eval_interp_image(image: SampleImage, st: vec2f) -> f32 {
+fn eval_interp_image(image: mat4x4f, st: vec2f) -> f32 {
     let xy: vec2f = st * 4.;
     let ij: vec2f = vec2f(min(max(vec2f(0), floor(xy)), vec2f(3)));
-    let bicubic_coeffs:  mat4x4f = bicubic_cell(image.image, vec2i(ij));
+    let bicubic_coeffs:  mat4x4f = bicubic_cell(image, vec2i(ij));
     return eval_bicubic(bicubic_coeffs, xy - ij);
 }
 
