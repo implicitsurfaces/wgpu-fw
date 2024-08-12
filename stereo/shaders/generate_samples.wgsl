@@ -107,8 +107,8 @@ fn main(
     @builtin(local_invocation_index) local_index: u32)
 {
     let feature_idx: u32 = global_id.x;
-    let chunk_idx:   u32 = global_id.y;
-    // if feature_idx >= arrayLength(src_features) { return; } // xxx why not work?
+    let invoc_idx:   u32 = global_id.y;
+    if feature_idx >= arrayLength(&src_features) { return; }
     
     // we do this redundantly in each invocation, but we _have_ to spend the time
     // to perform it once; it doesn't matter if multiple cores are doing it simultaneously
@@ -121,15 +121,17 @@ fn main(
         1. / determinant(sqrt_cov_dx),
     );
     
-    let pop_base: u32 = feature_idx * Sample_Count;
+    let samples_per_invocation: u32 = Sample_Multiple * 2;
+    let population_base: u32 = feature_idx * Sample_Count;
     for (var i: u32 = 0u; i < Sample_Multiple; i++) {
         // we do a kind of "MIS" here— we want the mean and covariance of the joint
         // probability distributions. distribution A is already "weighted" by nature
         // of being importance sampled, so we need only multiply in the pdf of the
         // other distribution.
-        let sample_id:         u32 = pop_base + chunk_idx * Sample_Multiple * 2 + i;
-        let gaus_sample:     vec2f = cov.sqrt_cov * unit_gaussian_2d_samples[sample_id];
-        var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[sample_id]).st;
+        let feature_sample_id: u32 = invoc_idx * samples_per_invocation + i;
+        let sample_id:         u32 = population_base + feature_sample_id;
+        let gaus_sample:     vec2f = cov.sqrt_cov * unit_gaussian_2d_samples[feature_sample_id];
+        var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
         xcor_sample                = corr_to_displacement(xcor_sample);
         let pdf_xcor_at_gaus:  f32 = gauss_pdf(xcor_sample, cov);
         let pdf_gaus_at_xcor:  f32 = eval_interp_image(img.image, gaus_sample);

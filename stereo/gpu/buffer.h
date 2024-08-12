@@ -89,7 +89,7 @@ public:
     }
     
     void submit_write(const std::vector<T>& data) {
-        submit_write(data.data(), range1i(0, data.size()));
+        submit_write(data.data(), range1i(0, data.size() - 1));
     }
     
     size_t size() const {
