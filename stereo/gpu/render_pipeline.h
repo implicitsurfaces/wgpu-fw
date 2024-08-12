@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stereo/defs.h>
 
 // todo: very few overrides for settings exposed now,

@@ -6,6 +6,7 @@
 #include <stereo/gpu/shader.h>
 #include <stereo/gpu/window.h>
 #include <stereo/app/solver.h>
+#include <stereo/app/visualize.h>
 
 using namespace stereo;
 using namespace std::chrono_literals;
@@ -39,11 +40,11 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let mip_level: i32 = 4;
+    let mip_level: i32 = 2;
     let tex_size: vec2f = vec2f(textureDimensions(tex_image, mip_level));
     let uv = vec2f(1. - in.uv.x, 1. - in.uv.y);
     let st: vec2<u32> = vec2<u32>(uv * tex_size);
-    let c = textureLoad(tex_image, st, mip_level).rgb;
+    let c = 0.5 * -textureLoad(tex_image, st, mip_level).rgb + 0.5;
     return vec4f(pow(c, vec3f(2.2)), 1.);
 }
 
@@ -171,7 +172,8 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(100ms);
     }
     StereoSolver solver {{cap}};
-    Viewer viewer {&solver};
+    // Viewer viewer {&solver};
+    Visualizer viewer {&solver};
     solver.capture(0);
 #if RUN_ONCE
     viewer.do_frame();

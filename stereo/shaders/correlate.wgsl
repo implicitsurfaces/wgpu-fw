@@ -13,8 +13,11 @@
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
-    let feature_idx: u32 = global_id.z;
-    // if feature_idx >= arrayLength(correlation_windows) { return; } // xxx why not work?
+    let feature_idx: u32 = global_id.x;
+    if feature_idx >= arrayLength(&correlation_windows) { return; }
+    
+    var one_v: vec4f   = vec4f(1.);
+    var one_m: mat4x4f = mat4x4f(one_v, one_v, one_v, one_v);
     
     let window_a: SampleWindow = window_pairs[feature_idx].a;
     let window_b: SampleWindow = window_pairs[feature_idx].b;
@@ -23,7 +26,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let b_0: cmat4 = cmat4(window_b.r, window_b.g);
     let b_1: cmat4 = cmat4(window_b.b, mat4x4f());
     
-    var xcor:  mat4x4f = correlation_windows[feature_idx].correlation;
+    // xxx: when we are accumulating multiple passes of correlation, we need to
+    //   to initialize this only once to 1, otherwise accumulate to the previous result.
+    var xcor:  mat4x4f = one_m; // correlation_windows[feature_idx].correlation;
     var xcors: array<mat4x4f, 2> = array<mat4x4f, 2>(
         normed_cross_correlation(a_0, b_0),
         normed_cross_correlation(a_1, b_1),

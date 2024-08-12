@@ -99,11 +99,13 @@ fn eval_cubic_derivative(coeffs: vec4f, x: f32) -> f32 {
 */
 
 fn eval_bicubic(coeffs: mat4x4f, xy: vec2f) -> f32 {
-    let x2: f32 = xy.x * xy.x;
-    let y2: f32 = xy.y * xy.y;
-    let x: vec4f = vec4f(1., xy.y, y2, y2 * xy.y);
-    let y: vec4f = vec4f(1., xy.y, y2, y2 * xy.y);
-    return dot(y, coeffs * x);
+    let x:  f32 = xy.x;
+    let y:  f32 = xy.y;
+    let x2: f32 = x * x;
+    let y2: f32 = y * y;
+    let xv: vec4f = vec4f(1., x, x2, x2 * x);
+    let yv: vec4f = vec4f(1., y, y2, y2 * y);
+    return dot(yv, coeffs * xv);
 }
 
 fn eval_bicubic_gradient(coeffs: mat4x4f, xy: vec2f) -> vec2f {
@@ -149,9 +151,9 @@ fn cdf_bilinear_gradient(
 fn cycled_bicubic(d: u32) -> mat4x4f {
     var j: vec4u          = vec4u(0, 1, 2, 3);
     var J: array<vec4u,4> = array<vec4u,4>(
-        j.wxyz,
-        j.xyzw,
         j.yzwx,
+        j.xyzw,
+        j.wxyz,
         j.zwxy,
     );
     // the global bicubic matrix is `const`, and so cannot be indexed by
@@ -421,9 +423,15 @@ fn sample_interp_image_patch(image: SampleImage, xy: vec2f) -> SamplePatch {
 
 fn eval_interp_image(image: mat4x4f, st: vec2f) -> f32 {
     let xy: vec2f = st * 4.;
-    let ij: vec2f = vec2f(min(max(vec2f(0), floor(xy)), vec2f(3)));
+    let ij: vec2f = floor(xy);
     let bicubic_coeffs:  mat4x4f = bicubic_cell(image, vec2i(ij));
     return eval_bicubic(bicubic_coeffs, xy - ij);
+}
+
+fn eval_4x4_image(image: mat4x4f, st: vec2f) -> f32 {
+    var m:  mat4x4f = image;
+    let xy: vec2u   = vec2u(st * 4.);
+    return m[xy.x][xy.y];
 }
 
 fn make_sample_image(image: mat4x4f) -> SampleImage {

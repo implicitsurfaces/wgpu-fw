@@ -50,12 +50,19 @@ wgpu::ShaderModule shader_from_str(
 	shader_code.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
 	shader_code.code = source;
     
-	wgpu::ShaderModuleDescriptor shader_module {};
-	shader_module.nextInChain = &shader_code.chain;
-	shader_module.hintCount = 0;
-	shader_module.hints = nullptr;
-    shader_module.label = label;
-	return device.createShaderModule(shader_module);
+	wgpu::ShaderModuleDescriptor module_desc {};
+	module_desc.nextInChain = &shader_code.chain;
+	module_desc.hintCount = 0;
+	module_desc.hints = nullptr;
+    module_desc.label = label;
+	wgpu::ShaderModule shader_module = device.createShaderModule(module_desc);
+    
+    if (not shader_module) {
+        std::cerr << "Error creating shader module" << std::endl;
+        std::abort();
+    }
+    
+    return shader_module;
 }
 
 }  // namespace stereo

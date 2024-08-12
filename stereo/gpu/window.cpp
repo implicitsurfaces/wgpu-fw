@@ -28,8 +28,8 @@ Window::~Window() {
 }
 
 void Window::init() {
-    int w = 1920;
-    int h = 1080;
+    int w = 1920 * 2;
+    int h = 1080 * 2;
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // todo: allow resize
