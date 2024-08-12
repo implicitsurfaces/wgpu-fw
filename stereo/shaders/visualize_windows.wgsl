@@ -30,7 +30,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
     );
 	var p = v[in_vertex_index % 4];
     var out: VertexOutput;
-	out.position = vec4f(p, 0.0, 1.0);
+	out.position = vec4f(p, 0.5, 1.0);
     out.uv       = p * 0.5 + 0.5;
     return out;
 }
@@ -79,13 +79,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
         0, 1, 0, 0,
     );
     
-    var cell = floor(xy * 4.);
-    var pq   = vec2i(cell);
-    var bx   = cycled_bicubic(u32(pq.x));
-    var by   = cycled_bicubic(u32(1u));
-    var d = eval_bicubic(by * smps * transpose(bx), vec2f(4. * xy.x - cell.x, xy.y));
-    
-    let c: f32 = eval_4x4_image(corr, xy);
     let q: f32 = eval_interp_image(rotate * corr * rotate, xy);
     let b: f32 = eval_4x4_image(smps, xy);
     
@@ -93,5 +86,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
         return vec4f(0.25, 0.12, 0.12, 1.);
     }
     
-    return vec4f(c, q, c, 1.);
+    return vec4f(b, q, b, 1.);
 }
