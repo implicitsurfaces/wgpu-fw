@@ -28,10 +28,10 @@ const CUBIC_AREA: vec4f = (vec4f(-1, 1, 1, -1) / 12. + vec4f(0, 1, 1, 0)) / 2.;
 // which intperpolate the cyclical signal. the cell at index 1 contains area of
 // the un-rotated signal's unit cell.
 const AREA_TRANSFORM: mat4x4f = mat4x4f(
-        CUBIC_AREA.wxyz,
-        CUBIC_AREA.xyzw,
-        CUBIC_AREA.yzwx,
         CUBIC_AREA.zwxy,
+        CUBIC_AREA.yzwx,
+        CUBIC_AREA.xyzw,
+        CUBIC_AREA.wxyz,
     );
 // the matrix which transforms a vector of samples to the coefficients of the
 // interpolating cubic. (recall wgsl matrices are column major)
@@ -227,12 +227,11 @@ fn invert_normed_cubic_integral(cs: vec4f, y_target: f32) -> f32 {
 // sample the piecewise linear cdf `cdf` at `x_01` in [0, 1].
 // return the sampled x-coordinate of the function in [0, 4].
 fn sample_cdf_vector(cdf_vec: vec4f, x_01: f32) -> Coordinate {
-    var cdf: vec4f = cdf_vec;
-    if cdf[3] == 0. {
+    if cdf_vec[3] == 0. {
         let z = modf(x_01 * 4.);
         return Coordinate(i32(z.whole), z.fract, 0.25);
     }
-    cdf /= cdf[3];
+    let cdf: vec4f = cdf_vec / cdf_vec[3];
     var i: i32;
     if x_01 >= cdf[1] {
         if x_01 >= cdf[2] {
@@ -435,8 +434,7 @@ fn eval_4x4_image(image: mat4x4f, st: vec2f) -> f32 {
 }
 
 fn make_sample_image(image: mat4x4f) -> SampleImage {
-    var areas:    mat4x4f = AREA_TRANSFORM * image * transpose(AREA_TRANSFORM);
-    var marginal: mat4x4f = areas;
+    var areas: mat4x4f = AREA_TRANSFORM * image * transpose(AREA_TRANSFORM);
     areas[1] += areas[0];
     areas[2] += areas[1];
     areas[3] += areas[2];
@@ -447,7 +445,7 @@ fn make_sample_image(image: mat4x4f) -> SampleImage {
     
     return SampleImage(
         image,
-        marginal,
+        areas,
         cdf,
     );
 }

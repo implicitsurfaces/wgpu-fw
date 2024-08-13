@@ -38,11 +38,11 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     // figure out which tile we're inside of
-    let uv: vec2f = vec2f(1.) - in.uv;
-    let st: vec2f = uv * vec2f(f32(uniforms.x_tiles), f32(uniforms.y_tiles));
-    let ij: vec2u = vec2u(st);
-    let xy: vec2f = st - vec2f(ij);
-    let idx:  u32 = ij.y * uniforms.x_tiles + ij.x;
+    let uv:         vec2f = vec2f(1.) - in.uv;
+    let tile_coord: vec2f = uv * vec2f(f32(uniforms.x_tiles), f32(uniforms.y_tiles));
+    let tile_ij:    vec2u = vec2u(tile_coord);
+    let tile_xy:    vec2f = tile_coord - vec2f(tile_ij);
+    let idx:        u32 = tile_ij.y * uniforms.x_tiles + tile_ij.x;
     
     // if we're out of bounds, return transparent black
     if idx >= arrayLength(&correlation_windows) { return vec4<f32>(0.); }
@@ -78,13 +78,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
         1, 0, 0, 0,
         0, 1, 0, 0,
     );
+    let q: f32 = eval_interp_image(rotate * corr * rotate, tile_xy);
+    let b: f32 = eval_4x4_image(smps, tile_xy);
     
-    let q: f32 = eval_interp_image(rotate * corr * rotate, xy);
-    let b: f32 = eval_4x4_image(smps, xy);
-    
-    if (xy.x < 0.05 || xy.y < 0.05) {
+    if (tile_xy.x < 0.05 || tile_xy.y < 0.05) {
         return vec4f(0.25, 0.12, 0.12, 1.);
     }
     
-    return vec4f(b, q, b, 1.);
+    return vec4f(q, b, q, 1.);
 }
