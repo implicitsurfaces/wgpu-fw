@@ -5,6 +5,7 @@ struct SamplePtUniforms {
     point_scale: f32,
     x_tiles: u32,
     y_tiles: u32,
+    draw_vectors: u32,
 }
 
 struct VertexOut {
@@ -19,8 +20,9 @@ struct VertexOut {
 
 @vertex
 fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
-    let point_idx:   u32 = in_vertex_index / 6;
-    let vert_idx:    u32 = in_vertex_index % 6;
+    let Verts_Per_Point: u32 = select(4u, 6u, uniforms.draw_vectors != 0u);
+    let point_idx:   u32 = in_vertex_index / Verts_Per_Point;
+    let vert_idx:    u32 = in_vertex_index % Verts_Per_Point;
     let feature_idx: u32 = point_idx / uniforms.samples_per_feature;
     let sample_idx:  u32 = point_idx % uniforms.samples_per_feature;
     if point_idx >= arrayLength(&samples) { return VertexOut(vec4f(0.), 0, 0.); }
@@ -67,9 +69,11 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
 fn fs_main(in: VertexOut) -> @location(0) vec4f {
     var c: vec3f;
     if (in.sample_id & 1u) != 0u {
+        // gauss sample
         c = vec3f(1., 0.4118, 0.8118);
     } else {
+        // xcor sample
         c = vec3f(0.6392, 0.4118, 1.);
     }
-    return vec4f(c, 1.); // in.weight);
+    return vec4f(c, in.weight);
 }

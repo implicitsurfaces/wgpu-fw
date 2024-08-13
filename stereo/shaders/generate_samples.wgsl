@@ -91,7 +91,14 @@ fn corr_to_displacement(xy: vec2f) -> vec2f {
     // cut up the square into 4 quadrants
     let uv = modf(xy * 2);
     // map to [-1, 1]
-    return vec2f(uv.fract.x, uv.fract.y) - vec2f(uv.whole.x, uv.whole.y);
+    return uv.fract - vec2f(uv.whole);
+}
+
+// xy is in [-1, 1]^2 -> [0, 1]^2
+fn displacement_to_corr(xy: vec2f) -> vec2f {
+    let st = xy + 1.;
+    let uv = modf(st);
+    return 0.5 * (uv.fract - vec2f(uv.whole)) + 0.5;
 }
 
 fn gauss_pdf(x: vec2f, cov: Covariance) -> f32 {
@@ -134,8 +141,8 @@ fn main(
         var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
         xcor_sample                = corr_to_displacement(xcor_sample);
         
-        let pdf_xcor_at_gaus:  f32 = gauss_pdf(xcor_sample, cov);
-        let pdf_gaus_at_xcor:  f32 = eval_interp_image(img.image, gaus_sample);
+        let pdf_gaus_at_xcor:  f32 = gauss_pdf(xcor_sample, cov);
+        let pdf_xcor_at_gaus:  f32 = eval_interp_image(img.image, displacement_to_corr(gaus_sample));
         // write the samples in feature.basis coordinates
         dst_samples[sample_base]     = WeightedSample(xcor_sample, pdf_gaus_at_xcor);
         dst_samples[sample_base + 1] = WeightedSample(gaus_sample, pdf_xcor_at_gaus);
