@@ -41,3 +41,26 @@ struct WindowPair {
     a: SampleWindow,
     b: SampleWindow,
 }
+
+struct SceneFeature {
+    x:          vec3f,
+    sqrt_cov:   mat3x3f,
+    q:          vec4f,
+    q_sqrt_cov: mat4x4f,
+}
+
+struct LensParameters {
+    fov:    f32,
+    aspect: f32,
+    p_12:   vec2f,         // p1, p2 (tangential distortion)
+    k_n:    array<f32, 6>, // k1 ... k6 (radial distortion)
+    x_c:    vec2f,         // x_c (center of distortion)
+}
+
+// camera coordinates are opengl convention:
+// +x right, +y up, -z forward.
+struct CameraState {
+    x:      vec3f,  // position of camera in world space
+    q:      vec4f,  // rotation that orients the camera in world space
+    lens:   LensParameters,
+}

@@ -78,6 +78,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
         1, 0, 0, 0,
         0, 1, 0, 0,
     );
+    
     let q: f32 = eval_interp_image(rotate * corr * rotate, tile_xy);
     let b: f32 = eval_4x4_image(smps, tile_xy);
     
