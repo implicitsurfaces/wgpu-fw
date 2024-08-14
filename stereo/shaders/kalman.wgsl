@@ -143,11 +143,11 @@ fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
     );
 }
 
-
-fn update_unproject_2d_3d(
-        prior:       Estimate3D,
-        measurement: Estimate2D,
-        H:           mat3x2f) -> Estimate3D
+fn update_ekf_unproject_2d_3d(
+    prior:       Estimate3D,
+    prior_2d:    vec2f,
+    measurement: Estimate2D,
+    H:           mat3x2f) -> Estimate3D
 {
     // recall that because of the column major convention, the matrix
     // row and column counts are reversed from the usual convention.
@@ -160,10 +160,19 @@ fn update_unproject_2d_3d(
     let J:  mat3x3f = I_3x3 - K * H;
     
     let P1: mat3x3f = sqrt_3x3(J * P);
-    let mu: vec3f   = prior.x + K * (measurement.x - H * prior.x);
+    let mu: vec3f   = prior.x + K * (measurement.x - prior_2d);
     
     return Estimate3D(
         mu,
         P1
     );
+}
+
+fn update_unproject_2d_3d(
+        prior:       Estimate3D,
+        measurement: Estimate2D,
+        H:           mat3x2f) -> Estimate3D
+{
+    let p_2d: vec2f = H * prior.x;
+    return update_ekf_unproject_2d_3d(prior, p_2d, measurement, H);
 }
