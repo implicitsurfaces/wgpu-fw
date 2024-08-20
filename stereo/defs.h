@@ -12,6 +12,7 @@
 
 #include <ankerl/unordered_dense.h>
 
+#include <geomc/function/Utils.h>
 #include <geomc/linalg/LinalgTypes.h>
 #include <geomc/shape/ShapeTypes.h>
 #include <geomc/function/FunctionTypes.h>
@@ -28,7 +29,8 @@ using namespace geom;
 
 namespace stereo {
 
-using uint128_t = __uint128_t;
+using uint128_t   = __uint128_t;
+using gpu_size_t  = uint32_t;
 
 using vec2        = Vec<float,2>;
 using vec3        = Vec<float,3>;
@@ -96,6 +98,19 @@ using tri         = Simplex<float,2>;
 using trid        = Simplex<double,2>;
 using tet         = Simplex<float,3>;
 using tetd        = Simplex<double,3>;
+
+
+// aligned types suitable for memory sharing with the GPU.
+// alignment specs are here: https://www.w3.org/TR/WGSL/#alignment-and-size
+// because we can't use the `alignas()` directive on a typedef, we commit
+// the sin of using `#define` to specify these types.
+#define vec2gpu alignas(8)  Vec<float,2>
+#define vec3gpu alignas(16) Vec<float,3>
+#define vec4gpu alignas(16) Vec<float,4>
+#define quatgpu alignas(16) Quat<float>
+#define mat2gpu alignas(8)  SimpleMatrix<float,2,2>
+#define mat3gpu alignas(16) SimpleMatrix<float,3,3>
+#define mat4gpu alignas(16) SimpleMatrix<float,4,4>
 
 
 template <typename K, typename V>

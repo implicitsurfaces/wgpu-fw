@@ -1,5 +1,6 @@
 // #include "structs.wgsl"
 // #include "kalman.wgsl"
+// #include "camera.wgsl"
 
 // xxx todo: we should just output the fused difference.
 //   - this will be used in different ways depending on the solver stage
@@ -19,14 +20,41 @@ const Sample_Invocations: u32 = 4;
 const Sample_Multiple:    u32 = 4;
 const Sample_Count:       u32 = Sample_Invocations * Sample_Multiple * 2;
 
-// nb: each input in a different group!
-@group(0) @binding(0) var<storage,read>       samples:      array<WeightedSample>;
-@group(1) @binding(0) var<storage,read>       src_features: array<FeaturePair>;
-@group(2) @binding(0) var<storage,read_write> dst_features: array<FeaturePair>;
+alias FuseMode = u32;
+
+const FuseMode_TimeUpdate:   FuseMode = 0;
+const FuseMode_StereoUpdate: FuseMode = 1;
+
+struct FuseUniforms {
+    fuse_mode:   FuseMode,
+    cam_a:       CameraState,
+    cam_b:       CameraState,
+}
+
+struct FeatureRange {
+    feature_start: u32,
+    feature_end:   u32,
+}
+
+@group(0) @binding(0) var<storage,read> samples:       array<WeightedSample>;
+@group(0) @binding(1) var<uniform>      uniforms:      FuseUniforms;
+@group(0) @binding(2) var<uniform>      feature_range: FeatureRange;
+
+// nb: different bindgroups below!
+@group(1) @binding(0) var<storage,read>       src_img_features:   array<FeaturePair>;
+@group(2) @binding(0) var<storage,read>       src_scene_features: array<SceneFeature>;
+@group(3) @binding(0) var<storage,read_write> dst_scene_features: array<SceneFeature>;
+@group(4) @binding(0) var<storage,read>       feature_idx_buffer: array<u32>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let feature_idx: u32 = global_id.x;
+    let i_idx:       u32 = global_id.x + feature_range.feature_start;
+    if i_idx >= arrayLength(&feature_idx_buffer) || i_idx > feature_range.feature_end {
+        return;
+    }
+    let scene_feature_idx: u32 = feature_idx_buffer[i_idx];
+    if scene_feature_idx >= arrayLength(&src_scene_features) { return; }
     
     // compute the "frequency weighted" covariance and mean of the sample set
     // see https://stats.stackexchange.com/questions/193046/online-weighted-covariance
@@ -48,47 +76,32 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let k: f32 = 1. / w_sum;
     let est_sqrt_cov: mat2x2f = sqrt_2x2(k * running_cov);
     
-    let src_feature: FeaturePair = src_features[feature_idx];
+    let src_img_feature:   FeaturePair  = src_img_features[feature_idx];
+    let src_scene_feature: SceneFeature = src_scene_features[scene_feature_idx];
     
-    // perform symmetrical update— the measured displacement between
-    // the two features constrains/informs where the endpoints can be.
-    // init starting points:
-    let a_prior: Estimate2D = Estimate2D(
-        src_feature.a.st,
-        src_feature.a.sqrt_cov,
-    );
-    let b_prior: Estimate2D = Estimate2D(
-        src_feature.b.st,
-        src_feature.b.sqrt_cov,
-    );
-    // B thinks A should be at -mu relative to itself
-    let a_update: Estimate2D = Estimate2D(
-        a_prior.x - mu,
-        a_prior.sqrt_sigma + est_sqrt_cov, // uncertainty of starting pt + delta compound
-    );
-    // A thinks B should be at +mu relative to itself
-    let b_update: Estimate2D = Estimate2D(
-        b_prior.x + mu,
-        b_prior.sqrt_sigma + est_sqrt_cov,
-    );
-    // fused estimates:
-    let a_post: Estimate2D = update(a_prior, a_update);
-    let b_post: Estimate2D = update(b_prior, b_update);
-    let updated_feature = FeaturePair(
-        src_feature.id,
-        src_feature.depth,
-        src_feature.parent,
-        ImageFeature(
-            a_post.x,
-            a_post.sqrt_sigma,
-            src_feature.a.basis,
-        ),
-        ImageFeature(
-            b_post.x,
-            b_post.sqrt_sigma,
-            src_feature.b.basis,
-        )
-    );
-    // update the feature
-    dst_features[feature_idx] = updated_feature;
+    if uniforms.fuse_mode == FuseMode_TimeUpdate {
+        // perform a time update
+        
+        // xxx todo: this
+        
+    } else if uniforms.fuse_mode == FuseMode_StereoUpdate {
+        // perform a stereo update.
+        // the correlogram is just a *correction* to the difference between
+        // the two views; add them together:
+        let dx: vec2f = src_img_feature.b.st - src_img_feature.a.st;
+        let updated: Estimate3D = unproject_kalman_view_difference(
+            Estimate3D(scene_feature.x, scene_feature.x_sqrt_cov),
+            Estimate2D(mu + dx, est_sqrt_cov),
+            cam_a,
+            cam_b
+        );
+        dst_scene_features[scene_feature_idx] = SceneFeature(
+            updated.x,
+            updated.sqrt_sigma,
+            // todo: no update to feature orientation for now
+            src_scene_feature.q,
+            src_scene_feature.q_sqrt_cov
+        );
+    }
+    
 }

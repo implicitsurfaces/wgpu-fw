@@ -147,7 +147,7 @@ void Application::init_texture() {
     uint8_t* pixelData = nullptr;
     if (nullptr == pixelData) throw std::runtime_error("Could not load input texture!");
     Extent3D textureSize = { (uint32_t)width, (uint32_t)height, 1 };
-
+    
     // Create texture
     TextureDescriptor textureDesc;
     textureDesc.dimension       = TextureDimension::_2D;
@@ -156,7 +156,7 @@ void Application::init_texture() {
     textureDesc.sampleCount     = 1;
     textureDesc.viewFormatCount = 0;
     textureDesc.viewFormats     = nullptr;
-
+    
     textureDesc.usage = (
         TextureUsage::TextureBinding | // to read the texture in a shader
         TextureUsage::StorageBinding | // to write the texture in a shader

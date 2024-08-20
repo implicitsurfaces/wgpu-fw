@@ -13,7 +13,7 @@ private:
     wgpu::Buffer _buffer = nullptr;
     size_t       _size;
     
-    void _init(wgpu::BufferUsage extra_flags) {
+    void _init(WGPUBufferUsageFlags extra_flags) {
         wgpu::BufferDescriptor buffer_bd;
         buffer_bd.size = sizeof(T) * _size;
         buffer_bd.usage = wgpu::BufferUsage::Storage | extra_flags;
@@ -28,10 +28,12 @@ private:
     
 public:
     
+    DataBuffer() = default;
+    
     DataBuffer(
         wgpu::Device device,
         size_t size,
-        wgpu::BufferUsage extra_usage_flags=wgpu::BufferUsage::None):
+        WGPUBufferUsageFlags extra_usage_flags=wgpu::BufferUsage::None):
             _device(device),
             _size(size)
     {

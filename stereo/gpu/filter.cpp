@@ -57,66 +57,6 @@ FilteredTexture::FilteredTexture(wgpu::Texture source, wgpu::Device device, Filt
     _init();
 }
 
-
-FilteredTexture::FilteredTexture(const FilteredTexture& other):
-    source(other.source),
-    df_dx(other.df_dx),
-    df_dy(other.df_dy),
-    laplace(other.laplace),
-    filter(other.filter),
-    _src_bindgroup(other._src_bindgroup),
-    _dst_bind_groups(other._dst_bind_groups)
-{
-    if (_src_bindgroup) _src_bindgroup.reference();
-    for (wgpu::BindGroup bg : _dst_bind_groups) {
-        bg.reference();
-    }
-}
-
-FilteredTexture::FilteredTexture(FilteredTexture&& other):
-    source(std::move(other.source)),
-    df_dx(std::move(other.df_dx)),
-    df_dy(std::move(other.df_dy)),
-    laplace(std::move(other.laplace)),
-    filter(other.filter),
-    _src_bindgroup(other._src_bindgroup),
-    _dst_bind_groups(other._dst_bind_groups)
-{
-    other._src_bindgroup = nullptr;
-    other._dst_bind_groups.clear();
-}
-
-FilteredTexture::~FilteredTexture() {
-    _release();
-}
-
-FilteredTexture& FilteredTexture::operator=(const FilteredTexture& other) {
-    _release();
-    source  = other.source;
-    df_dx   = other.df_dx;
-    df_dy   = other.df_dy;
-    laplace = other.laplace;
-    filter  = other.filter;
-    _src_bindgroup   = other._src_bindgroup;
-    _dst_bind_groups = other._dst_bind_groups;
-    if (_src_bindgroup) _src_bindgroup.reference();
-    for (wgpu::BindGroup bg : _dst_bind_groups) {
-        bg.reference();
-    }
-    return *this;
-}
-
-FilteredTexture& FilteredTexture::operator=(FilteredTexture&& other) {
-    std::swap(source,  other.source);
-    std::swap(df_dx,   other.df_dx);
-    std::swap(df_dy,   other.df_dy);
-    std::swap(laplace, other.laplace);
-    std::swap(filter,  other.filter);
-    std::swap(_src_bindgroup,   other._src_bindgroup);
-    std::swap(_dst_bind_groups, other._dst_bind_groups);
-    return *this;
-}
-
 void FilteredTexture::_init() {
     wgpu::BindGroupEntry src_entry = wgpu::Default;
     src_entry.binding     = 0;
@@ -149,15 +89,8 @@ void FilteredTexture::_init() {
                 + std::to_string(i)
                 + ")"
             ).c_str();
-        wgpu::BindGroup bg = source.device().createBindGroup(dst_desc);
-        _dst_bind_groups.push_back(bg);
-    }
-}
-
-void FilteredTexture::_release() {
-    if (_src_bindgroup) _src_bindgroup.release();
-    for (wgpu::BindGroup bg : _dst_bind_groups) {
-        bg.release();
+        BindGroup bg = source.device().createBindGroup(dst_desc);
+        _dst_bind_groups.push_back(std::move(bg));
     }
 }
 
@@ -165,11 +98,11 @@ void FilteredTexture::process() {
     filter->apply(*this);
 }
 
-wgpu::BindGroup FilteredTexture::source_bindgroup() {
+BindGroup FilteredTexture::source_bindgroup() {
     return _src_bindgroup;
 }
 
-wgpu::BindGroup FilteredTexture::target_bindgroup(size_t level) {
+BindGroup FilteredTexture::target_bindgroup(size_t level) {
     return _dst_bind_groups[level];
 }
 
@@ -197,10 +130,6 @@ Filter3x3::~Filter3x3() {
 void Filter3x3::_release() {
     release_all(
         _pipeline,
-        _uniform_bind_group,
-        _uniform_layout,
-        _dst_layout,
-        _src_layout,
         _uniform_buffer,
         _device
     );

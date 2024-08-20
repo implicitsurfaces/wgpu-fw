@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stereo/gpu/bindgroup.h>
 #include <stereo/gpu/texture.h>
 
 namespace stereo {
@@ -16,45 +17,39 @@ struct FilteredTexture {
 
 private:
     
-    wgpu::BindGroup _src_bindgroup = nullptr;
-    std::vector<wgpu::BindGroup> _dst_bind_groups;
+    BindGroup _src_bindgroup;
+    std::vector<BindGroup> _dst_bind_groups;
     
     void _init();
-    void _release();
     
 public:
     
     FilteredTexture() = default;
     FilteredTexture(wgpu::Texture source, wgpu::Device device, Filter3x3& filter);
-    FilteredTexture(const FilteredTexture&);
-    FilteredTexture(FilteredTexture&&);
-    ~FilteredTexture();
     
-    FilteredTexture& operator=(const FilteredTexture&);
-    FilteredTexture& operator=(FilteredTexture&&);
-    
-    wgpu::BindGroup source_bindgroup();
-    wgpu::BindGroup target_bindgroup(size_t level);
+    BindGroup source_bindgroup();
+    BindGroup target_bindgroup(size_t level);
     
     void process();
 };
+
 
 struct Filter3x3 {
     
     static constexpr uint32_t max_mip_levels = 24;
     
 private:
-    wgpu::Device          _device             = nullptr;
+    wgpu::Device    _device = nullptr;
     // uniforms
-    wgpu::Buffer          _uniform_buffer     = nullptr;
+    wgpu::Buffer    _uniform_buffer = nullptr;
     // bind group layouts
-    wgpu::BindGroupLayout _src_layout         = nullptr;
-    wgpu::BindGroupLayout _dst_layout         = nullptr;
-    wgpu::BindGroupLayout _uniform_layout     = nullptr;
+    BindGroupLayout _src_layout;
+    BindGroupLayout _dst_layout;
+    BindGroupLayout _uniform_layout;
     // bind group
-    wgpu::BindGroup       _uniform_bind_group = nullptr;
+    BindGroup       _uniform_bind_group;
     // pipeline
-    wgpu::ComputePipeline _pipeline           = nullptr;
+    wgpu::ComputePipeline _pipeline = nullptr;
     
     void _init();
     void _release();

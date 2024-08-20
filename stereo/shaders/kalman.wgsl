@@ -25,6 +25,7 @@ struct QuantifiedEstimate2D {
     quality:  f32,
 }
 
+// xxx these algorithms don't work. gotta at least set upper tri to 0.
 fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
     let trace: f32 = m[0][0] + m[1][1];
     let det:   f32 = determinant(m);
@@ -157,9 +158,9 @@ fn update_ekf_unproject_2d_3d(
     let S0: mat2x2f = inverse2x2(H * P * HT + R);
     //  (3x2) = (3x3) * (3x2) * (2x2)
     let K:  mat2x3f = P * HT * S0;
-    let J:  mat3x3f = I_3x3 - K * H;
+    let M:  mat3x3f = I_3x3 - K * H;
     
-    let P1: mat3x3f = sqrt_3x3(J * P);
+    let P1: mat3x3f = sqrt_3x3(M * P);
     let mu: vec3f   = prior.x + K * (measurement.x - prior_2d);
     
     return Estimate3D(
@@ -176,3 +177,43 @@ fn update_unproject_2d_3d(
     let p_2d: vec2f = H * prior.x;
     return update_ekf_unproject_2d_3d(prior, p_2d, measurement, H);
 }
+
+// todo / questions:
+// - can we block-diagonalize the update?
+//   - does the math factor nicely?
+//     I'm thinking we assume uncorrelated between the blocks, and then
+//     update accordingly. does this introduce off-diagonal terms?
+//     > yes.
+//   - if yes, what do we get if try to project the correlation down
+//     to block-diagonal state again?
+//     > you just extract the diagonal block and discard the off diagonals.
+// - can we discard the off-diagonal terms in the update step early if we know
+//   we will not store them?
+//   - write this in terms of a proj mtx; see if you can absorb it into
+//     the internal calc?
+//   - this is extremely useful if possible, because we want three 7x7 diagonal blocks
+//     (cam A, cam B, feature), and it would be great not to have to multiply
+//     21x21 matrices (400 elements).
+//     > even in the best case, this is 84 elements, which is still a lot;
+//       we may have to split up this step into smaller passes or multiple invocations.
+// - write 3d backproject over difference betw. camera views
+// - how do we do a blockified matrix mult?
+//   - I suspect it's the same as the mxmul algorithm, but with
+//     the sub-blocks instead of the elements.
+// - we how shall we handle the camera Q.T coviariance? (upper tri 7x7 = 28 elements)
+//   - should we write an upper tri matmul?
+//     these are needed:
+//     - 2x7 * (7x7 upper or lower tri) -> 2x7
+//     - (7x7 upper or lower tri) * 7x2 -> 7x2
+//     - 2x7 * 7x2 -> 2x2
+//     - 7x2 * 2x7 outer product -> full 7x7
+//     - 7x7 * (7x7 upper or lower tri) -> full 7x7
+//     - 7x7 mtx sqrt
+//    > 7x7 update toolset is critical because we can also use it to update
+//      the "augmented" feature state (xyz + q).
+// - Q: what happens when you cholesky factorize a lower triangular matrix?
+//   > A: you can't. cholesky only operates on symmetric positive definite matrices.
+// - Q: can we keep our Q mean at 0? what would that update look like?
+//   - what does it mean to "observe" q?
+//   - how do we "renormalize" Q to force it to have the correct covariance for
+//     points on the unit sphere?
