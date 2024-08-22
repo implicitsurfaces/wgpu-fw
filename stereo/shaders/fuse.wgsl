@@ -90,10 +90,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         // the two views; add them together:
         let dx: vec2f = src_img_feature.b.st - src_img_feature.a.st;
         let updated: Estimate3D = unproject_kalman_view_difference(
-            Estimate3D(scene_feature.x, scene_feature.x_sqrt_cov),
+            Estimate3D(src_scene_feature.x, src_scene_feature.x_sqrt_cov),
             Estimate2D(mu + dx, est_sqrt_cov),
-            cam_a,
-            cam_b
+            uniforms.cam_a,
+            uniforms.cam_b
         );
         dst_scene_features[scene_feature_idx] = SceneFeature(
             updated.x,

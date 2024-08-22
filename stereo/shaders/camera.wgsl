@@ -35,15 +35,16 @@ struct Dx4x2 {
 
 fn pinhole_projection(lens: LensParameters) -> mat4x4f {
     // xxx todo
+    return mat4x4f();
 }
 
 // compute the world-to-camera matrix from a camera state.
-world_to_cam(cam: CameraState) -> mat4x4f {
-    let q:  vec4f  = qconj(cam.q); // invert cam2world for world2cam
-    let Q:  mat3x3 = qvmat(q);
+fn world_to_cam(cam: CameraState) -> mat4x4f {
+    let q:  vec4f   = qconj(cam.q); // invert cam2world for world2cam
+    let Q:  mat3x3f = qvmat(q);
     // world2cam transform; i.e. puts a world point in camera space
-    let T:  vec3f  = -cam.x;
-    let M:  mat4x4 = mat4x4f(
+    let T:  vec3f   = -cam.x;
+    let M:  mat4x4f = mat4x4f(
         vec4f(Q[0],  0.),
         vec4f(Q[1],  0.), 
         vec4f(Q[2],  0.),
@@ -64,9 +65,9 @@ fn J_project_stereographic_dp(x: vec3f) -> Dx3x2 {
     let J: mat3x2f = mat3x2f(
         k * vec2f(x.y * x.y + zzp, x.x * x.y),
         k * vec2f(x.x * x.y, x.x * x.x + zzp),
-        q * vec2f(x + x.y * x.z / m, y + x.y * x.z / m),
+        q * vec2f(x.x + x.y * x.z / m, x.y + x.y * x.z / m),
     );
-    return Dx3x2(x, J);
+    return Dx3x2(uv, J);
 }
 
 // take a point in camera space and project it to the image plane
@@ -74,26 +75,26 @@ fn J_project_stereographic_dp(x: vec3f) -> Dx3x2 {
 // about the camera space point.
 fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
     let M: mat4x4f = world_to_cam(cam);            // world-to-camera matrix
-    let P: mat4x4  = pinhole_projection(cam.lens); // projection matrix
-    let Q: mat4x4  = P * M;
+    let P: mat4x4f = pinhole_projection(cam.lens); // projection matrix
+    let Q: mat4x4f = P * M;
     let x_clip: vec4f = Q * vec4f(p, 1.);
     let x: vec2f = x_clip.xy / x_clip.w;
     
     let J: mat3x2f = ( 
         transpose(mat2x3f(x.x * Q[3].xyz, x.y * Q[3].xyz))
-        + mat3x2f(Q[0].xyz, Q[1].xyz, Q[2].xyz)
-    ) / x_clip.w;
+        + mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy)
+    ) * (1. / x_clip.w);
     
     return Dx3x2(x, J);
 }
 
-fn J_world_to_cam_dp(cam: CameraState) {
+fn J_world_to_cam_dp(cam: CameraState) -> mat4x4f {
     return world_to_cam(cam);
 }
 
 // projection with jacobian with respect to the camera position
 fn J_world_to_cam_dtx(cam: CameraState) -> mat3x3f {
-    const one: vec3f = vec3f(1., 0., 0.);
+    var one: vec3f = vec3f(1., 0., 0.);
     // inverse bc camera point is negated in the world_to_cam transform
     return mat3x3f(-one.xyy, -one.yxy, -one.yyx);
 }

@@ -12,6 +12,7 @@ using namespace stereo;
 using namespace std::chrono_literals;
 
 #define RUN_ONCE 0
+#define ABORT_ON_ERROR 1
 
 // todo: mip generation probably does not handle edges correctly
 
@@ -171,20 +172,25 @@ int main(int argc, char** argv) {
         cap->open(0);
         std::this_thread::sleep_for(100ms);
     }
-    StereoSolver solver {{cap}};
     // Viewer viewer {&solver};
-    Visualizer viewer {&solver};
-    solver.capture(0);
+    Visualizer viewer {{cap}};
+    viewer.solver->capture(0);
 #if RUN_ONCE
     viewer.do_frame();
 #else
+    bool ok = true;
     while (not glfwWindowShouldClose(viewer.window.window)) {
         glfwPollEvents();
-        solver.capture(0);
+        viewer.solver->capture(0);
         viewer.do_frame();
-        solver.device().poll(false); // xxx what does this do...?
+        viewer.solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate
+        if (ABORT_ON_ERROR and viewer.solver->has_error()) {
+            ok = false;
+            break;
+        }
     }
 #endif
-    std::cout << "finished!" << std::endl;
+    if (ok) std::cout << "finished!" << std::endl;
+    else    std::cerr << "Aborted."   << std::endl;
 }
