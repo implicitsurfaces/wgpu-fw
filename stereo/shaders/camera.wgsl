@@ -33,24 +33,24 @@ struct Dx4x2 {
     J_f: mat4x2f,
 }
 
-fn pinhole_projection(lens: LensParameters) -> mat4x4f {
-    // xxx todo
-    return mat4x4f();
+// camera space is Y-up, X-right, Z-backward.
+fn pinhole_projection(lens: LensParameters) -> mat3x3f {
+    let f_x: f32 = 1. / tan(lens.fov_radians / 2.);
+    let f_y: f32 = f_x / lens.aspect;
+    return mat3x3f(
+        vec3f(f_x,  0.,  0.),
+        vec3f(0.,  f_y,  0.),
+        vec3f(lens.x_c, -1.),
+    );
 }
 
 // compute the world-to-camera matrix from a camera state.
-fn world_to_cam(cam: CameraState) -> mat4x4f {
+fn world_to_cam(cam: CameraState) -> mat4x3f {
     let q:  vec4f   = qconj(cam.q); // invert cam2world for world2cam
     let Q:  mat3x3f = qvmat(q);
     // world2cam transform; i.e. puts a world point in camera space
     let T:  vec3f   = -cam.x;
-    let M:  mat4x4f = mat4x4f(
-        vec4f(Q[0],  0.),
-        vec4f(Q[1],  0.), 
-        vec4f(Q[2],  0.),
-        vec4f(Q * T, 1.),
-    );
-    return M;
+    return mat4x3f(Q[0], Q[1], Q[2], Q * T);
 }
 
 // take an X in camera space and project it to the stereographic image plane.
@@ -74,22 +74,23 @@ fn J_project_stereographic_dp(x: vec3f) -> Dx3x2 {
 // using the given camera state. return the jacobian of the projection
 // about the camera space point.
 fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
-    let M: mat4x4f = world_to_cam(cam);            // world-to-camera matrix
-    let P: mat4x4f = pinhole_projection(cam.lens); // projection matrix
-    let Q: mat4x4f = P * M;
-    let x_clip: vec4f = Q * vec4f(p, 1.);
-    let x: vec2f = x_clip.xy / x_clip.w;
+    let M: mat4x3f = world_to_cam(cam);            // world-to-camera matrix
+    let P: mat3x3f = pinhole_projection(cam.lens); // projection matrix
+    let Q: mat4x3f = P * M;
+    let x_clip: vec3f = Q * vec4f(p, 1.);
+    let x: vec2f = x_clip.xy / x_clip.z;
     
     let J: mat3x2f = ( 
-        transpose(mat2x3f(x.x * Q[3].xyz, x.y * Q[3].xyz))
+        transpose(mat2x3f(x.x * Q[3], x.y * Q[3]))
         + mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy)
-    ) * (1. / x_clip.w);
+    ) * (1. / x_clip.z);
     
     return Dx3x2(x, J);
 }
 
-fn J_world_to_cam_dp(cam: CameraState) -> mat4x4f {
-    return world_to_cam(cam);
+fn J_world_to_cam_dp(cam: CameraState) -> mat3x3f {
+    let M: mat4x3f = world_to_cam(cam);
+    return mat3x3f(M[0], M[1], M[2]);
 }
 
 // projection with jacobian with respect to the camera position
@@ -105,10 +106,50 @@ fn J_world_to_cam_dq(cam: CameraState, p: vec3f) -> mat3x4f {
 }
 
 fn project(cam: CameraState, p: vec3f) -> vec2f {
-    let P: mat4x4f = pinhole_projection(cam.lens);
+    let P: mat3x3f = pinhole_projection(cam.lens);
     let x:   vec3f = qvmult(qconj(cam.q), p - cam.x);
-    let x_clip: vec4f = P * vec4f(x, 1.);
-    return x_clip.xy / x_clip.w;
+    let x_clip: vec3f = P * x;
+    return x_clip.xy / x_clip.z;
+}
+
+fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
+    let p: vec3f   = f.x;
+    let M: mat4x3f = world_to_cam(cam);
+    let J: Dx3x2   = J_project_dp(cam, M * vec4f(p, 1));
+    let P: mat3x2f = J.J_f * mat3x3f(M[0], M[1], M[2]);
+    var R_sqrt: mat3x2f = P * f.x_sqrt_cov;
+    let R: mat2x2f = R_sqrt * transpose(R_sqrt);
+    // todo: more robustly compute the basis.
+    //   Q: What actually drives the basis scale?
+    //     > the window needs to be big enough to encapsulate the covariance, but
+    //     > the window also needs to have a size that encompasses the feature
+    //       - needs to be able to correlate with previous frame
+    //       - needs to encompass all the child freatures.
+    //     > the above suggests that "semantic size" is what matters, so the Q is then
+    //       "what do we do about excessive state uncertainty?"
+    //       - vague idea: push it up to a higher level somehow and rely on the
+    //         coarser parent to narrow the search
+    //         > this is only a problem at the root level, because children are confined to
+    //           have uncertainty less than the parent's window by construction
+    //         > don't much like this because there's no guarantee the feature is
+    //           resolvable at the parent level if there isn't an existing parent.
+    //           could get "attached" to a totally unrelated feature
+    //         > there will not be a corresponding feature in the previous frame,
+    //           unless we backpropagate or some BS. yeah, don't like this.
+    //       - vague idea: particle filter that shit. spawn a bunch of new trees
+    //         in the expanded search space; rely on quality results to reveal the
+    //         true result
+    let area: f32 = sqrt(determinant(R));
+    let d:    f32 = 2 * sqrt(area);
+    return ImageFeature(
+        J.f_x,
+        sqrt_2x2(R),
+        // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
+        mat2x2f(
+            d,  0.,
+            0., d,
+        ),
+    );
 }
 
 fn unproject_kalman_view_difference(

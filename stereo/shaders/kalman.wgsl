@@ -169,6 +169,39 @@ fn update_ekf_unproject_2d_3d(
     );
 }
 
+// xxx: todo: I think we need three estimates: a, b, and b-a.
+//   > could we fanagle that into a 4x4 so we can invert?
+//     it all comes down to how to generate that covariance matrix.
+//     > I think yes. the Q is: if I have E[A], E[B], and E[B-A],
+//       what is E[A,B]?
+fn update_ekf_unproject_initial_2d_3d(
+    measure_a: Estimate2D,
+    measure_b: Estimate2D,
+    H_a:       mat3x2f,
+    H_b:       mat3x2f) -> Estimate3D
+{
+    // see 'initialization of the kalman filter without assumptions
+    // on the initial state' by linderoth et al.; equation 5
+    let H_aT = transpose(H_a);
+    let H_bT = transpose(H_b);
+    let HT: mat4x3f = mat4x3f(
+        H_aT[0], H_aT[1], H_bT[0], H_bT[1]
+    );
+    let H: mat3x4f = transpose(HT);
+    
+    // xxx: what does R look like? it should be 4x4, and I think it's not block-diagonal
+    let R: mat4x4f = mat4x4f(); // ...
+    
+    let R_inv:  mat4x4f = inverse4x4(R);
+    let S:      mat3x3f = inverse3x3(HT * R_inv * H);
+    let S_sqrt: mat3x3f = sqrt_3x3(S);
+    
+    return Estimate3D(
+        S * HT * R_inv * vec4f(measure_a.x, measure_b.x),
+        S_sqrt
+    );
+}
+
 fn update_unproject_2d_3d(
         prior:       Estimate3D,
         measurement: Estimate2D,

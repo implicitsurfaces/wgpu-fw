@@ -6,20 +6,17 @@
 
 namespace stereo {
 
+enum struct BufferKind {
+    Storage,
+    Uniform,
+};
+
 template <typename T>
 struct DataBuffer {
 private:
     wgpu::Device _device = nullptr;
     wgpu::Buffer _buffer = nullptr;
-    size_t       _size;
-    
-    void _init(WGPUBufferUsageFlags extra_flags) {
-        wgpu::BufferDescriptor buffer_bd;
-        buffer_bd.size = sizeof(T) * _size;
-        buffer_bd.usage = wgpu::BufferUsage::Storage | extra_flags;
-        buffer_bd.mappedAtCreation = false;
-        _buffer = _device.createBuffer(buffer_bd);
-    }
+    gpu_size_t   _size;
     
     void _release() {
         if (_buffer) _buffer.release();
@@ -32,13 +29,29 @@ public:
     
     DataBuffer(
         wgpu::Device device,
-        size_t size,
-        WGPUBufferUsageFlags extra_usage_flags=wgpu::BufferUsage::None):
+        gpu_size_t size,
+        BufferKind kind,
+        WGPUBufferUsageFlags extra_flags=wgpu::BufferUsage::None):
             _device(device),
             _size(size)
     {
-        _init(extra_usage_flags);
+        wgpu::BufferDescriptor buffer_bd;
+        buffer_bd.size = sizeof(T) * _size;
+        if (kind == BufferKind::Uniform) {
+            extra_flags |= wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+        } else {
+            extra_flags |= wgpu::BufferUsage::Storage;
+        }
+        buffer_bd.usage = extra_flags;
+        buffer_bd.mappedAtCreation = false;
+        _buffer = _device.createBuffer(buffer_bd);
     }
+    
+    DataBuffer(
+        wgpu::Device device,
+        gpu_size_t size,
+        WGPUBufferUsageFlags extra_usage_flags=wgpu::BufferUsage::None):
+            DataBuffer(device, size, BufferKind::Storage, extra_usage_flags) {}
     
     DataBuffer(const DataBuffer& other):
         _device(other._device),
@@ -94,8 +107,21 @@ public:
         submit_write(data.data(), range1i(0, data.size() - 1));
     }
     
-    size_t size() const {
+    void submit_write(const T& data, gpu_size_t index) {
+        submit_write(&data, range1i(index, index));
+    }
+    
+    template <size_t N>
+    void submit_write(const std::array<T,N>& data) {
+        submit_write(data.data(), range1i(0, N - 1));
+    }
+    
+    gpu_size_t size() const {
         return _size;
+    }
+    
+    gpu_size_t offset_of(gpu_size_t index) const {
+        return index * sizeof(T);
     }
     
 };

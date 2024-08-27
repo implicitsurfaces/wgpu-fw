@@ -60,10 +60,20 @@
 //   > if this gets away from us, that's a tree conditioning / process noise step
 //     make a note of this, test/observe, and address if it causes issues.
 
+alias SampleMode = u32;
+
+const SampleMode_Joint:       SampleMode = 0;
+const SampleMode_Correlation: SampleMode = 1;
+
 struct Covariance {
     sqrt_cov:     mat2x2f,
     inv_sqrt_cov: mat2x2f,
     i_sqrt_det:   f32, // 1 / determinant(sqrt_cov)
+}
+
+struct SampleUniforms {
+    multiple: u32,
+    mode:     SampleMode,
 }
 
 // todo: wgpu support for constants is still in progress
@@ -73,13 +83,12 @@ struct Covariance {
 // @id(1001) override Sample_Multiple: u32 = 4;
 
 const Sample_Invocations: u32 = 4;
-const Sample_Multiple:    u32 = 4;
-const Sample_Count:       u32 = Sample_Invocations * Sample_Multiple * 2;
 const Wg_Width:           u32 = 64 / Sample_Invocations;
 const Tau:                f32 = 6.28318530717958647692;
 
-@group(0) @binding(0) var<storage,read> correlations:      array<CorrelationWindow>;
-@group(0) @binding(1) var<storage,read_write> dst_samples: array<WeightedSample>;
+@group(0) @binding(0) var<storage,read>       correlations: array<CorrelationWindow>;
+@group(0) @binding(1) var<storage,read_write> dst_samples:  array<WeightedSample>;
+@group(0) @binding(2) var<uniform>            uniforms:     SampleUniforms;
 
 @group(1) @binding(0) var<storage,read> src_features: array<FeaturePair>;
 
@@ -128,23 +137,34 @@ fn main(
         1. / determinant(sqrt_cov_dx),
     );
     
-    let samples_per_invocation: u32 = Sample_Multiple * 2;
-    let population_base: u32 = feature_idx * Sample_Count;
-    for (var i: u32 = 0u; i < Sample_Multiple; i++) {
-        // we do a kind of "MIS" here— we want the mean and covariance of the joint
-        // probability distributions. distribution A is already "weighted" by nature
-        // of being importance sampled, so we need only multiply in the pdf of the
-        // other distribution.
-        let feature_sample_id: u32 = invoc_idx * Sample_Multiple + i;
-        let sample_base:       u32 = population_base + invoc_idx * samples_per_invocation + i * 2;
-        let gaus_sample:     vec2f = cov.sqrt_cov * unit_gaussian_2d_samples[feature_sample_id];
-        var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
-        xcor_sample                = corr_to_displacement(xcor_sample);
-        
-        let pdf_gaus_at_xcor:  f32 = gauss_pdf(xcor_sample, cov);
-        let pdf_xcor_at_gaus:  f32 = eval_interp_image(img.image, displacement_to_corr(gaus_sample));
-        // write the samples in feature.basis coordinates
-        dst_samples[sample_base]     = WeightedSample(xcor_sample, pdf_gaus_at_xcor);
-        dst_samples[sample_base + 1] = WeightedSample(gaus_sample, pdf_xcor_at_gaus);
+    let sample_count: u32 = uniforms.multiple * Sample_Invocations * 2;
+    let samples_per_invocation: u32 = uniforms.multiple * 2;
+    let population_base: u32 = feature_idx * sample_count;
+    if uniforms.mode == SampleMode_Joint {
+        for (var i: u32 = 0u; i < uniforms.multiple; i++) {
+            // we do a kind of "MIS" here— we want the mean and covariance of the joint
+            // probability distributions. distribution A is already "weighted" by nature
+            // of being importance sampled, so we need only multiply in the pdf of the
+            // other distribution.
+            let feature_sample_id: u32 = invoc_idx * uniforms.multiple + i;
+            let sample_base:       u32 = population_base + invoc_idx * samples_per_invocation + i * 2;
+            let gaus_sample:     vec2f = cov.sqrt_cov * unit_gaussian_2d_samples[feature_sample_id];
+            var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
+            xcor_sample                = corr_to_displacement(xcor_sample);
+            
+            let pdf_gaus_at_xcor:  f32 = gauss_pdf(xcor_sample, cov);
+            let pdf_xcor_at_gaus:  f32 = eval_interp_image(img.image, displacement_to_corr(gaus_sample));
+            // write the samples in feature.basis coordinates
+            dst_samples[sample_base]     = WeightedSample(xcor_sample, pdf_gaus_at_xcor);
+            dst_samples[sample_base + 1] = WeightedSample(gaus_sample, pdf_xcor_at_gaus);
+        }
+    } else if uniforms.mode == SampleMode_Correlation {
+        for (var i: u32 = 0u; i < uniforms.multiple * 2; i++) {
+            let feature_sample_id: u32 = invoc_idx * uniforms.multiple + i;
+            let sample_base:       u32 = population_base + invoc_idx * samples_per_invocation + i;
+            var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
+            xcor_sample                = corr_to_displacement(xcor_sample);
+            dst_samples[sample_base]   = WeightedSample(xcor_sample, 1.);
+        }
     }
 }

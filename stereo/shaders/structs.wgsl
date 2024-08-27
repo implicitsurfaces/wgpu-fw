@@ -1,6 +1,20 @@
 // structs.wgsl
 // common structs across multiple stages of stereo fusion
 
+struct SceneFeature {
+    x:          vec3f,
+    x_sqrt_cov: mat3x3f,
+    q:          vec4f,
+    q_sqrt_cov: mat4x4f,
+    wt:         f32,
+}
+
+struct TreeNode {
+    parent:      u32,
+    child_begin: u32,
+    child_end:   u32,
+}
+
 struct CorrelationWindow {
     correlation: mat4x4f,
 }
@@ -12,11 +26,8 @@ struct ImageFeature {
 }
 
 struct FeaturePair {
-    id:     u32,
-    depth:  u32,
-    parent: u32,
-    a:      ImageFeature,
-    b:      ImageFeature,
+    a: ImageFeature,
+    b: ImageFeature,
 }
 
 struct MatcherUniforms {
@@ -40,19 +51,6 @@ struct SampleWindow {
 struct WindowPair {
     a: SampleWindow,
     b: SampleWindow,
-}
-
-struct SceneFeature {
-    x:          vec3f,
-    x_sqrt_cov: mat3x3f,
-    q:          vec4f,
-    q_sqrt_cov: mat4x4f,
-}
-
-struct TreeNode {
-    parent:      u32,
-    child_begin: u32,
-    child_end:   u32,
 }
 
 struct LensParameters {

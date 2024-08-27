@@ -17,16 +17,16 @@
 // @id(1001) override Sample_Multiple: u32 = 4;
 
 const Sample_Invocations: u32 = 4;
-const Sample_Multiple:    u32 = 4;
-const Sample_Count:       u32 = Sample_Invocations * Sample_Multiple * 2;
 
 alias FuseMode = u32;
 
 const FuseMode_TimeUpdate:   FuseMode = 0;
 const FuseMode_StereoUpdate: FuseMode = 1;
+const FuseMode_StereoInit:   FuseMode = 2;
 
 struct FuseUniforms {
     fuse_mode:   FuseMode,
+    multiple:    u32,
     cam_a:       CameraState,
     cam_b:       CameraState,
 }
@@ -48,6 +48,7 @@ struct FeatureRange {
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
+    var sample_count: u32 = Sample_Invocations * uniforms.multiple * 2;
     let feature_idx: u32 = global_id.x;
     let i_idx:       u32 = global_id.x + feature_range.feature_start;
     if i_idx >= arrayLength(&feature_idx_buffer) || i_idx > feature_range.feature_end {
@@ -64,8 +65,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     var mu:   vec2f = vec2f(0.);
     var w_sum:  f32 = 0.;
     var running_cov = mat2x2f(); // zero matrix
-    for (var i: u32 = 0u; i < Sample_Count; i++) {
-        let sample_index: u32 = feature_idx * Sample_Count + i;
+    for (var i: u32 = 0u; i < sample_count; i++) {
+        let sample_index: u32 = feature_idx * sample_count + i;
         let sample: WeightedSample = samples[sample_index];
         let w: f32 = sample.w;
         w_sum += w;
@@ -100,8 +101,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
             updated.sqrt_sigma,
             // todo: no update to feature orientation for now
             src_scene_feature.q,
-            src_scene_feature.q_sqrt_cov
+            src_scene_feature.q_sqrt_cov,
+            1. // xxx todo: update quality estimate
         );
+    } else if uniforms.fuse_mode == FuseMode_StereoInit {
+        
+        // xxx todo: use update_ekf_unproject_initial_2d_3d()
     }
     
 }
