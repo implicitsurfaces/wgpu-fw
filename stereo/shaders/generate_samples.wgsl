@@ -1,6 +1,7 @@
 // #include "structs.wgsl"
 // #include "sample.wgsl"
 // #include "inverse.wgsl"
+// #include "mat_helpers.wgsl"
 
 // todo: quality estimate
 // todo: figure out how to estimate an update to the feature bases
@@ -116,6 +117,15 @@ fn gauss_pdf(x: vec2f, cov: Covariance) -> f32 {
     return exp(-0.5 * r * r) * cov.i_sqrt_det / Tau;
 }
 
+fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
+    let trace: f32 = m[0][0] + m[1][1];
+    let det:   f32 = determinant(m);
+    // pick the sign of s to match the sign of the trace, so they don't cancel
+    let s:     f32 = select(1., sign(trace), trace != 0.);
+    let t:     f32 = sqrt(trace + 2. * s);
+    return (m + I2x2(s)) * (1. / t);
+}
+
 @compute @workgroup_size(Wg_Width, Sample_Invocations)
 fn main(
     @builtin(global_invocation_id)   global_id: vec3u,
@@ -130,7 +140,7 @@ fn main(
     // to perform it once; it doesn't matter if multiple cores are doing it simultaneously
     let img: SampleImage = make_sample_image(correlations[feature_idx].correlation);
     let src_feature: FeaturePair = src_features[feature_idx];
-    let sqrt_cov_dx: mat2x2f = src_feature.a.sqrt_cov + src_feature.b.sqrt_cov;
+    let sqrt_cov_dx: mat2x2f = sqrt_2x2(src_feature.a.cov + src_feature.b.cov);
     let cov: Covariance = Covariance(
         sqrt_cov_dx,
         inverse2x2(sqrt_cov_dx),

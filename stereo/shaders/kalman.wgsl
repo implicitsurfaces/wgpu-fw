@@ -10,12 +10,12 @@ const Tau: f32 = 6.28318530717958647692;
 
 struct Estimate2D {
     x:          vec2f,
-    sqrt_sigma: mat2x2f,
+    sigma: mat2x2f,
 }
 
 struct Estimate3D {
     x:          vec3f,
-    sqrt_sigma: mat3x3f,
+    sigma: mat3x3f,
 }
 
 struct QuantifiedEstimate2D {
@@ -25,104 +25,53 @@ struct QuantifiedEstimate2D {
     quality:  f32,
 }
 
-// xxx these algorithms don't work. gotta at least set upper tri to 0.
-fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
-    let trace: f32 = m[0][0] + m[1][1];
-    let det:   f32 = determinant(m);
-    // pick the sign of s to match the sign of the trace, so they don't cancel
-    let s:     f32 = select(1., sign(trace), trace != 0.);
-    let t:     f32 = sqrt(trace + 2. * s);
-    return (m + I2x2(s)) * (1. / t);
+fn regularize_posdef_2x2(m: mat2x2f) -> mat2x2f {
+    return 0.5 * (m + transpose(m));
 }
 
-fn sqrt_3x3(m_: mat3x3f) -> mat3x3f {
-    var m: mat3x3f = m_;
-    // cholesky algorithm
-    // todo: unroll this. for now, hope the compiler is smrt
-    var L: mat3x3f = mat3x3f();
-    for (var i: u32 = 0u; i < 3; i++) {
-        for (var j: u32 = 0u; j <= i; j++) {
-            var sum: f32 = 0.;
-            if j == i {
-                for (var k: u32 = 0u; k < j; k++) {
-                    let Lkj: f32 = L[k][j];
-                    sum += Lkj * Lkj;
-                }
-                L[j][j] = sqrt(m[j][j] - sum);
-            } else {
-                for (var k: u32 = 0u; k < j; k++) {
-                    sum += L[k][i] * L[k][j];
-                }
-                L[j][i] = (m[j][i] - sum) / L[j][j];
-            }
-        }
-    }
-    return L;
-}
-
-fn sqrt_4x4(m_: mat4x4f) -> mat4x4f {
-    var m: mat4x4f = m_;
-    // cholesky algorithm
-    var L: mat4x4f = mat4x4f();
-    for (var i: u32 = 0u; i < 4; i++) {
-        for (var j: u32 = 0u; j <= i; j++) {
-            var sum: f32 = 0.;
-            if j == i {
-                for (var k: u32 = 0u; k < j; k++) {
-                    let Lkj: f32 = L[k][j];
-                    sum += Lkj * Lkj;
-                }
-                L[j][j] = sqrt(m[j][j] - sum);
-            } else {
-                for (var k: u32 = 0u; k < j; k++) {
-                    sum += L[k][i] * L[k][j];
-                }
-                L[j][i] = (m[j][i] - sum) / L[j][j];
-            }
-        }
-    }
-    return L;
+fn regularize_posdef_3x3(m: mat3x3f) -> mat3x3f {
+    return 0.5 * (m + transpose(m));
 }
 
 fn transform2d(a: Estimate2D, dx: vec2f, F: mat2x2f) -> Estimate2D {
     return Estimate2D(
         dx + a.x,
-        F  * a.sqrt_sigma,
+        F  * a.sigma * transpose(F),
     );
 }
 
 fn transform3d(a: Estimate3D, dx: vec3f, F: mat3x3f) -> Estimate3D {
     return Estimate3D(
         dx + a.x,
-        F  * a.sqrt_sigma,
+        F  * a.sigma * transpose(F),
     );
 }
 
 fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
-    let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
-    let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
+    let S0 = a.sigma;
+    let S1 = b.sigma;
     let K: mat2x2f = S0 * inverse2x2(S0 + S1);
     let J: mat2x2f = I_2x2 - K;
-    let L: mat2x2f = sqrt_2x2(J);
+    let E: mat2x2f = J * a.sigma * transpose(J);
     
     return Estimate2D(
-        a.x + K * (b.x - a.x), // update mean
-        L * a.sqrt_sigma,      // update sqrt covariance
+        a.x + K * (b.x - a.x),    // update mean
+        regularize_posdef_2x2(E), // update covariance
     );
 }
 
 fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
-    let S0 = a.sqrt_sigma * transpose(a.sqrt_sigma);
-    let S1 = b.sqrt_sigma * transpose(b.sqrt_sigma);
+    let S0 = a.sigma;
+    let S1 = b.sigma;
     let s01_inv: mat2x2f = inverse2x2(S0 + S1);
     let K: mat2x2f = S0 * s01_inv;
     let J: mat2x2f = I_2x2 - K;
-    let L: mat2x2f = sqrt_2x2(J);
     let dx: vec2f = b.x - a.x;
+    let E: mat2x2f = J * a.sigma * transpose(J);
     
     let e = Estimate2D(
-        a.x + K * dx,     // update mean
-        L * a.sqrt_sigma, // update sqrt covariance
+        a.x + K * dx,             // update mean
+        regularize_posdef_2x2(E), // update covariance
     );
     
     // normalization factors of the two estimates;
@@ -152,20 +101,20 @@ fn update_ekf_unproject_2d_3d(
 {
     // recall that because of the column major convention, the matrix
     // row and column counts are reversed from the usual convention.
-    let P:  mat3x3f = prior.sqrt_sigma       * transpose(prior.sqrt_sigma);
-    let R:  mat2x2f = measurement.sqrt_sigma * transpose(measurement.sqrt_sigma);
+    let P:  mat3x3f = prior.sigma;
+    let R:  mat2x2f = measurement.sigma;
     let HT: mat2x3f = transpose(H);
     let S0: mat2x2f = inverse2x2(H * P * HT + R);
     //  (3x2) = (3x3) * (3x2) * (2x2)
     let K:  mat2x3f = P * HT * S0;
     let M:  mat3x3f = I_3x3 - K * H;
     
-    let P1: mat3x3f = sqrt_3x3(M * P);
+    let P1: mat3x3f = M * P;
     let mu: vec3f   = prior.x + K * (measurement.x - prior_2d);
     
     return Estimate3D(
         mu,
-        P1
+        regularize_posdef_3x3(P1)
     );
 }
 
@@ -193,12 +142,12 @@ fn update_ekf_unproject_initial_2d_3d(
     let R: mat4x4f = mat4x4f(); // ...
     
     let R_inv:  mat4x4f = inverse4x4(R);
-    let S:      mat3x3f = inverse3x3(HT * R_inv * H);
-    let S_sqrt: mat3x3f = sqrt_3x3(S);
+    var S:      mat3x3f = inverse3x3(HT * R_inv * H);
+    S = regularize_posdef_3x3(S);
     
     return Estimate3D(
         S * HT * R_inv * vec4f(measure_a.x, measure_b.x),
-        S_sqrt
+        S
     );
 }
 

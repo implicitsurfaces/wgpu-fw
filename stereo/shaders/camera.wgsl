@@ -119,8 +119,7 @@ fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
     let M: mat4x3f = world_to_cam(cam);
     let J: Dx3x2   = J_project_dp(cam, M * vec4f(p, 1));
     let P: mat3x2f = J.J_f * mat3x3f(M[0], M[1], M[2]);
-    var R_sqrt: mat3x2f = P * f.x_sqrt_cov;
-    let R: mat2x2f = R_sqrt * transpose(R_sqrt);
+    let R: mat2x2f = P * f.x_cov * transpose(P);
     // todo: more robustly compute the basis.
     //   Q: What actually drives the basis scale?
     //     > the window needs to be big enough to encapsulate the covariance, but
@@ -145,7 +144,7 @@ fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
     let d:    f32 = 2 * sqrt(area);
     return ImageFeature(
         J.f_x,
-        sqrt_2x2(R),
+        R,
         // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
         mat2x2f(
             d,  0.,

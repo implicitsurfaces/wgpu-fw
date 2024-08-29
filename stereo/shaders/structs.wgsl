@@ -2,11 +2,11 @@
 // common structs across multiple stages of stereo fusion
 
 struct SceneFeature {
-    q:          vec4f,
-    q_sqrt_cov: mat4x4f,
-    x:          vec3f,
-    x_sqrt_cov: mat3x3f,
-    wt:         f32,
+    q:     vec4f,
+    q_cov: mat4x4f,
+    x:     vec3f,
+    x_cov: mat3x3f,
+    wt:    f32,
 }
 
 struct TreeNode {
@@ -20,9 +20,9 @@ struct CorrelationWindow {
 }
 
 struct ImageFeature {
-    st:        vec2f,
-    sqrt_cov:  mat2x2f,
-    basis:     mat2x2f,
+    st:    vec2f,
+    cov:   mat2x2f,
+    basis: mat2x2f,
 }
 
 struct FeaturePair {

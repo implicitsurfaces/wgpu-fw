@@ -75,7 +75,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         running_cov += w * outer2x2(dx);
     }
     let k: f32 = 1. / w_sum;
-    let est_sqrt_cov: mat2x2f = sqrt_2x2(k * running_cov);
+    let est_cov: mat2x2f = k * running_cov;
     
     let src_img_feature:   FeaturePair  = src_img_features[feature_idx];
     let src_scene_feature: SceneFeature = src_scene_features[scene_feature_idx];
@@ -91,17 +91,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         // the two views; add them together:
         let dx: vec2f = src_img_feature.b.st - src_img_feature.a.st;
         let updated: Estimate3D = unproject_kalman_view_difference(
-            Estimate3D(src_scene_feature.x, src_scene_feature.x_sqrt_cov),
-            Estimate2D(mu + dx, est_sqrt_cov),
+            Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
+            Estimate2D(mu + dx, est_cov),
             uniforms.cam_a,
             uniforms.cam_b
         );
         dst_scene_features[scene_feature_idx] = SceneFeature(
             // todo: no update to feature orientation for now
             src_scene_feature.q,
-            src_scene_feature.q_sqrt_cov,
+            src_scene_feature.q_cov,
             updated.x,
-            updated.sqrt_sigma,
+            updated.sigma,
             1. // xxx todo: update quality estimate
         );
     } else if uniforms.fuse_mode == FuseMode_StereoInit {
