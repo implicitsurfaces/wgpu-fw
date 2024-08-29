@@ -2,10 +2,10 @@
 // common structs across multiple stages of stereo fusion
 
 struct SceneFeature {
-    x:          vec3f,
-    x_sqrt_cov: mat3x3f,
     q:          vec4f,
     q_sqrt_cov: mat4x4f,
+    x:          vec3f,
+    x_sqrt_cov: mat3x3f,
     wt:         f32,
 }
 

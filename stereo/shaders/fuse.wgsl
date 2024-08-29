@@ -97,11 +97,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
             uniforms.cam_b
         );
         dst_scene_features[scene_feature_idx] = SceneFeature(
-            updated.x,
-            updated.sqrt_sigma,
             // todo: no update to feature orientation for now
             src_scene_feature.q,
             src_scene_feature.q_sqrt_cov,
+            updated.x,
+            updated.sqrt_sigma,
             1. // xxx todo: update quality estimate
         );
     } else if uniforms.fuse_mode == FuseMode_StereoInit {
