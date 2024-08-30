@@ -4,31 +4,6 @@
 
 namespace stereo {
 
-// mip views have three options:
-// - all levels in one view
-// - a specific mip level
-// - views for a range of mip levels
-
-/// Should the mip levels be stored as one view, or multiple views?
-enum struct MipViews {
-    Single,
-    Multiple
-};
-
-/// All possible mip levels should be represented
-enum struct MipLevels {
-    All
-};
-
-/// What range of mip levels should be represented?
-using MipRange = std::variant<MipLevels, int32_t, range1i>;
-
-/// How should mip levels be covered?
-struct MipSetting {
-    MipViews view_type = MipViews::Single;
-    MipRange range     = MipLevels::All;
-};
-
 struct Texture {
 private:    
     wgpu::Device  _device  = nullptr;
@@ -39,6 +14,12 @@ private:
 
 public:
     Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range=range1i::full);
+    Texture(
+        wgpu::Device device,
+        vec2ui size,
+        wgpu::TextureFormat format,
+        const char* label="texture"
+    );
     Texture();
     Texture(const Texture&);
     Texture(Texture&&);
@@ -59,6 +40,10 @@ public:
     wgpu::TextureView view();
     wgpu::Texture     texture() const;
     wgpu::Device      device() const;
+    gpu_size_t        width();
+    gpu_size_t        height();
+    
+    void send_write(uint8_t* data, gpu_size_t bytes_per_channel=4);
 
 private:
     

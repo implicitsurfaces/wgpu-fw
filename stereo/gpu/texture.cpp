@@ -14,6 +14,33 @@ Texture::Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range):
     _init();
 }
 
+
+Texture::Texture(
+        wgpu::Device device,
+        vec2ui size,
+        wgpu::TextureFormat format,
+        const char* label):
+    _device(device)
+{
+    device.reference();
+    wgpu::TextureDescriptor desc;
+    desc.dimension       = wgpu::TextureDimension::_2D;
+    desc.format          = format;
+    desc.size            = {size.x, size.y, 1};
+    desc.mipLevelCount   = std::bit_width(std::max(size.x, size.y));
+    desc.sampleCount     = 1;
+    desc.viewFormatCount = 0;
+    desc.viewFormats     = nullptr;
+    desc.usage           = 
+        wgpu::TextureUsage::TextureBinding | // to read the texture from a shader
+        wgpu::TextureUsage::StorageBinding | // to write the texture from a shader
+        wgpu::TextureUsage::CopyDst;         // to upload the input data
+    desc.label = label;
+    _texture = device.createTexture(desc);
+    _mip_range = {0, ((int)desc.mipLevelCount) - 1};
+    _init();
+}
+
 Texture::Texture(const Texture& other) :
     _device(other._device),
     _texture(other._texture),
@@ -151,6 +178,39 @@ wgpu::Texture Texture::texture() const {
 
 wgpu::Device Texture::device() const {
     return _device;
+}
+
+gpu_size_t Texture::width() {
+    return _texture != nullptr ? _texture.getWidth() : 0u;
+}
+
+gpu_size_t Texture::height() {
+    return _texture != nullptr ? _texture.getHeight() : 0u;
+}
+
+void Texture::send_write(uint8_t* data, gpu_size_t bytes_per_channel) {
+    uint32_t h = _texture.getHeight();
+    uint32_t w = _texture.getWidth();
+    wgpu::ImageCopyTexture dst_texture;
+    dst_texture.texture  = _texture;
+    dst_texture.origin   = { 0, 0, 0 };
+    dst_texture.aspect   = wgpu::TextureAspect::All;
+    dst_texture.mipLevel = 0;
+    
+    wgpu::TextureDataLayout src_layout;
+    src_layout.offset       = 0;
+    src_layout.bytesPerRow  = bytes_per_channel * sizeof(uint8_t) * w;
+    src_layout.rowsPerImage = h;
+    
+    wgpu::Queue queue = device().getQueue();
+    queue.writeTexture(
+        dst_texture,
+        data,
+        4 * w * h,
+        src_layout,
+        {w, h, 1}
+    );
+    queue.release();
 }
 
 }  // namespace stereo

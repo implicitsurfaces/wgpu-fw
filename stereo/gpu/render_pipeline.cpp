@@ -2,16 +2,49 @@
 
 namespace stereo {
 
+// blending helpers
+
+wgpu::BlendState get_blend_over() {
+    wgpu::BlendState blend;
+    blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+    blend.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+    blend.color.operation = wgpu::BlendOperation::Add;
+    blend.alpha.srcFactor = wgpu::BlendFactor::One;
+    blend.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+    blend.alpha.operation = wgpu::BlendOperation::Add;
+    return blend;
+}
+
+wgpu::BlendState get_blend_additive() {
+    wgpu::BlendState blend;
+    blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+    blend.color.dstFactor = wgpu::BlendFactor::One;
+    blend.color.operation = wgpu::BlendOperation::Add;
+    blend.alpha.srcFactor = wgpu::BlendFactor::One;
+    blend.alpha.dstFactor = wgpu::BlendFactor::One;
+    blend.alpha.operation = wgpu::BlendOperation::Add;
+    return blend;
+}
+
+
+// RenderPipeline class
+
 RenderPipeline::RenderPipeline(
         wgpu::Device device,
         wgpu::ShaderModule shader,
         wgpu::PrimitiveTopology topology,
         std::initializer_list<wgpu::TextureFormat> target_formats,
-        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts):
+        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts,
+        std::optional<wgpu::BlendState> blending):
     _device(device),
     _topology(topology)
 {
-    _init(shader, target_formats, bind_group_layouts);
+    _init(
+        shader,
+        target_formats,
+        bind_group_layouts,
+        blending.value_or(get_blend_over())
+    );
 }
 
 RenderPipeline::~RenderPipeline() {
@@ -21,7 +54,8 @@ RenderPipeline::~RenderPipeline() {
 void RenderPipeline::_init(
         wgpu::ShaderModule shader,
         std::initializer_list<wgpu::TextureFormat> target_formats,
-        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts
+        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts,
+        wgpu::BlendState blending
     )
 {
     // set up vertex shader
@@ -53,20 +87,11 @@ void RenderPipeline::_init(
     frg_state.constantCount = 0;
     frg_state.constants     = nullptr;
     
-    // blend state
-    wgpu::BlendState blend;
-    blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-    blend.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-    blend.color.operation = wgpu::BlendOperation::Add;
-    blend.alpha.srcFactor = wgpu::BlendFactor::Zero;
-    blend.alpha.dstFactor = wgpu::BlendFactor::One;
-    blend.alpha.operation = wgpu::BlendOperation::Add;
-    
     std::vector<wgpu::ColorTargetState> target_states {target_formats.size()};
     for (size_t i = 0; i < target_formats.size(); i++) {
         auto& target = target_states[i];
         target.format = target_formats.begin()[i];
-        target.blend  = &blend;
+        target.blend  = &blending;
         target.writeMask = wgpu::ColorWriteMask::All;
     }
     frg_state.targetCount = target_states.size();

@@ -46,3 +46,12 @@ fn outer4x4(v: vec4f) -> mat4x4f {
         v * v.w,
     );
 }
+
+fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
+    let trace: f32 = m[0][0] + m[1][1];
+    let det:   f32 = determinant(m);
+    // pick the sign of s to match the sign of the trace, so they don't cancel
+    let s:     f32 = select(1., sign(trace), trace != 0.);
+    let t:     f32 = sqrt(trace + 2. * s);
+    return (m + I2x2(s)) * (1. / t);
+}

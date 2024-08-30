@@ -117,15 +117,6 @@ fn gauss_pdf(x: vec2f, cov: Covariance) -> f32 {
     return exp(-0.5 * r * r) * cov.i_sqrt_det / Tau;
 }
 
-fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
-    let trace: f32 = m[0][0] + m[1][1];
-    let det:   f32 = determinant(m);
-    // pick the sign of s to match the sign of the trace, so they don't cancel
-    let s:     f32 = select(1., sign(trace), trace != 0.);
-    let t:     f32 = sqrt(trace + 2. * s);
-    return (m + I2x2(s)) * (1. / t);
-}
-
 @compute @workgroup_size(Wg_Width, Sample_Invocations)
 fn main(
     @builtin(global_invocation_id)   global_id: vec3u,

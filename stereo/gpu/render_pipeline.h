@@ -8,6 +8,10 @@
 
 namespace stereo {
 
+wgpu::BlendState get_blend_over();
+
+wgpu::BlendState get_blend_additive();
+
 struct RenderPipeline {
     wgpu::Device            _device   = nullptr;
     wgpu::RenderPipeline    _pipeline = nullptr;
@@ -18,7 +22,8 @@ struct RenderPipeline {
         wgpu::ShaderModule shader,
         wgpu::PrimitiveTopology topology,
         std::initializer_list<wgpu::TextureFormat> target_formats,
-        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts);
+        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts,
+        std::optional<wgpu::BlendState> blending = std::nullopt);
     
     RenderPipeline(const RenderPipeline& other) = delete;
     RenderPipeline(RenderPipeline&& other) = delete;
@@ -31,7 +36,8 @@ struct RenderPipeline {
     void _init(
         wgpu::ShaderModule shader,
         std::initializer_list<wgpu::TextureFormat> target_formats,
-        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts
+        std::initializer_list<wgpu::BindGroupLayout> bind_group_layouts,
+        wgpu::BlendState blending
     );
     
     void _release();
