@@ -33,16 +33,16 @@ struct Dx4x2 {
     J_f: mat4x2f,
 }
 
-// project camera space to image space (on [-1,1]^2)
+// project camera space to image space (on [0,1]^2)
 // image center is (0.5, 0.5); origin at the lower left.
 fn pinhole_projection(lens: LensParameters) -> mat3x3f {
     let t:   f32 = 2. * tan(lens.fov_radians / 2.);
     let f_x: f32 = 1. / t;
     let f_y: f32 = f_x * lens.aspect;
     return mat3x3f(
-        vec3f(f_x,   0.,  0.),
-        vec3f(0.,   f_y,  0.),
-        vec3f(-lens.x_c, -1.),
+        vec3f(f_x,  0.,  0.),
+        vec3f(0.,  f_y,  0.),
+        vec3f(-lens.x_c, -1.), // -lens.x_c is negative because Z is negative
     );
 }
 
