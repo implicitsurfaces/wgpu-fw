@@ -188,7 +188,7 @@ gpu_size_t Texture::height() {
     return _texture != nullptr ? _texture.getHeight() : 0u;
 }
 
-void Texture::send_write(uint8_t* data, gpu_size_t bytes_per_channel) {
+void Texture::submit_write(uint8_t* data, gpu_size_t bytes_per_channel) {
     uint32_t h = _texture.getHeight();
     uint32_t w = _texture.getWidth();
     wgpu::ImageCopyTexture dst_texture;

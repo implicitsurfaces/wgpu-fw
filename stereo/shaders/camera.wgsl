@@ -33,23 +33,23 @@ struct Dx4x2 {
     J_f: mat4x2f,
 }
 
-// project camera space to image space (on [0,1]^2)
+// project camera space to image space (on [-1,1]^2)
 // image center is (0.5, 0.5); origin at the lower left.
 fn pinhole_projection(lens: LensParameters) -> mat3x3f {
-    let f_x: f32 = 1. / tan(lens.fov_radians / 2.);
+    let t:   f32 = 2. * tan(lens.fov_radians / 2.);
+    let f_x: f32 = 1. / t;
     let f_y: f32 = f_x * lens.aspect;
     return mat3x3f(
-        vec3f(f_x / 2.,  0.,  0.),
-        vec3f(0.,  f_y / 2.,  0.),
-        vec3f(-lens.x_c,     -1.),
+        vec3f(f_x,   0.,  0.),
+        vec3f(0.,   f_y,  0.),
+        vec3f(-lens.x_c, -1.),
     );
 }
 
 // compute the world-to-camera matrix from a camera state.
 // camera space is Y-up, X-right, Z-backward.
 fn world_to_cam(cam: CameraState) -> mat4x3f {
-    let q:  vec4f   = qconj(cam.q); // invert cam2world for world2cam
-    let Q:  mat3x3f = qvmat(q);
+    let Q:  mat3x3f = qvmat(qconj(cam.q)); // invert cam2world for world2cam
     // world2cam transform; i.e. puts a world point in camera space
     let T:  vec3f   = -cam.x;
     return mat4x3f(Q[0], Q[1], Q[2], Q * T);
@@ -109,7 +109,7 @@ fn J_world_to_cam_dq(cam: CameraState, p: vec3f) -> mat3x4f {
 
 fn project(cam: CameraState, p: vec3f) -> vec2f {
     let P: mat3x3f = pinhole_projection(cam.lens);
-    let x:   vec3f = qvmult(qconj(cam.q), p - cam.x);
+    let x:   vec3f = qrot(qconj(cam.q), p - cam.x);
     let x_clip: vec3f = P * x;
     return x_clip.xy / x_clip.z;
 }

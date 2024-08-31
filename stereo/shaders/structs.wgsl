@@ -56,9 +56,8 @@ struct WindowPair {
 struct LensParameters {
     fov_radians: f32,
     aspect:      f32,
-    p_12:        vec2f,         // p1, p2 (tangential distortion)
-    x_c:         vec2f,         // x_c (center of distortion)
-    
+    x_c:         vec2f, // x_c (center of distortion)
+    p_12:        vec2f, // p1, p2 (tangential distortion)
     // we can't do array<f32,6> because there are draconian stride requirements.
     k_1_4: vec4f, // k1 ... k4 (radial distortion coeffs)
     k_5_6: vec2f, // k5, k6 (remaining radial distortion coeffs)

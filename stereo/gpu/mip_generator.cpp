@@ -204,6 +204,10 @@ wgpu::Device MipGenerator::get_device() {
     return _device;
 }
 
+void MipGenerator::generate_mips(Texture& texture) {
+    MipTexture mip_tex = create_mip_texture(texture.texture());
+    mip_tex.generate();
+}
 
 MipTexture MipGenerator::create_mip_texture(wgpu::Texture texture) {
     return MipTexture(texture, *this);

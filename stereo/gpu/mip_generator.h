@@ -51,7 +51,8 @@ public:
     MipGenerator(wgpu::Device device);
     ~MipGenerator();
     
-    MipTexture create_mip_texture(wgpu::Texture texture);
+    MipTexture   create_mip_texture(wgpu::Texture texture);
+    void         generate_mips(Texture& texture);
     wgpu::Device get_device();
 };
 

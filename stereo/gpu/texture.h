@@ -43,7 +43,7 @@ public:
     gpu_size_t        width();
     gpu_size_t        height();
     
-    void send_write(uint8_t* data, gpu_size_t bytes_per_channel=4);
+    void submit_write(uint8_t* data, gpu_size_t bytes_per_channel=4);
 
 private:
     

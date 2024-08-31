@@ -5,10 +5,11 @@ fn qconj(q: vec4f) -> vec4f {
     return vec4f(-q.xyz, q.w);
 }
 
+// this is correct
 fn qmult(q0: vec4f, q1: vec4f) -> vec4f {
     return vec4f(
         dot(q0.wxy, q1.xwz) - q0.z * q1.y,
-        dot(q0.wyz, q1.ywz) - q0.x * q1.z,
+        dot(q0.wyz, q1.ywx) - q0.x * q1.z,
         dot(q0.wxz, q1.zyw) - q0.y * q1.x,
         q0.w * q1.w - dot(q0.xyz, q1.xyz)
     );
@@ -18,10 +19,10 @@ fn qmult(q0: vec4f, q1: vec4f) -> vec4f {
 // on the left
 fn qmat(q: vec4f) -> mat4x4f {
     return mat4x4f(
-        q.wzyx * vec4f( 1., -1.,  1., -1.),
-        q.zwxy * vec4f( 1.,  1., -1., -1.),
-        q.yxwz * vec4f(-1.,  1.,  1., -1.),
-        q
+        q.wzyx * vec4f( 1.,  1., -1.,  1.),
+        q.zwxy * vec4f(-1.,  1.,  1.,  1.),
+        q.yxwz * vec4f( 1., -1.,  1.,  1.),
+        q      * vec4f(-1., -1., -1.,  1.)
     );
 }
 
@@ -29,21 +30,27 @@ fn qmat(q: vec4f) -> mat4x4f {
 // on the right
 fn qmat_T(q: vec4f) -> mat4x4f {
     return mat4x4f(
-        q.wzyx * vec4f( 1.,  1., -1., -1.),
-        q.zwxy * vec4f(-1.,  1.,  1., -1.),
-        q.yxwz * vec4f( 1., -1.,  1., -1.),
-        q
+        q.wzyx * vec4f( 1., -1.,  1.,  1.),
+        q.zwxy * vec4f( 1.,  1., -1.,  1.),
+        q.yxwz * vec4f(-1.,  1.,  1.,  1.),
+        q      * vec4f(-1., -1., -1.,  1.)
     );
 }
 
-fn qvmult(q: vec4f, v: vec3f) -> vec3f {
+// quaternion rotation of a vector
+fn qrot(q: vec4f, v: vec3f) -> vec3f {
     // euler-rodrigues formula
-    let t: vec3f = 2. * cross(q.xyz, v);
-    return q.w * (q.w * v + t + cross(q.xyz, t));
+    // this is from wikipedia; afaict it's completely wrong.
+    // let t: vec3f = 2. * cross(q.xyz, v);
+    // return q.w * (q.w * v + t) + cross(q.xyz, t);
+    
+    // chatgpt gives this, and it works:
+    let b: vec3f = 2.0 * cross(q.xyz, v);
+    return v + q.w * b + cross(q.xyz, b);
 }
 
 fn qvmat(q: vec4f) -> mat3x3f {
-    let M: mat4x4f = qmat_T(q) * qmat(q);
+    let M: mat4x4f = transpose(qmat_T(q)) * qmat(q);
     return mat3x3f(M[0].xyz, M[1].xyz, M[2].xyz);
 }
 

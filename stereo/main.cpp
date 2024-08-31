@@ -190,6 +190,7 @@ int main(int argc, char** argv) {
             break;
         }
     }
+    cap->release();
 #endif
     if (ok) std::cout << "finished!" << std::endl;
     else    std::cerr << "Aborted."   << std::endl;
