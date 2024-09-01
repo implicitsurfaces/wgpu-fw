@@ -72,7 +72,7 @@ fn J_project_stereographic_dp(x: vec3f) -> Dx3x2 {
     return Dx3x2(uv, J);
 }
 
-// take a point in camera space and project it to the image plane
+// take a point in world space and project it to the image plane
 // using the given camera state. return the jacobian of the projection
 // about the camera space point.
 fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
@@ -82,9 +82,9 @@ fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
     let x_clip: vec3f = Q * vec4f(p, 1.);
     let x: vec2f = x_clip.xy / x_clip.z;
     
-    let J: mat3x2f = ( 
-        transpose(mat2x3f(x.x * Q[3], x.y * Q[3]))
-        + mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy)
+    let Pz = transpose(Q)[2].xyz;
+    let J: mat3x2f = (
+        transpose(mat2x3(x.x * Pz, x.y * Pz)) + mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy)
     ) * (1. / x_clip.z);
     
     return Dx3x2(x, J);
@@ -115,11 +115,8 @@ fn project(cam: CameraState, p: vec3f) -> vec2f {
 }
 
 fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
-    let p: vec3f   = f.x;
-    let M: mat4x3f = world_to_cam(cam);
-    let J: Dx3x2   = J_project_dp(cam, M * vec4f(p, 1));
-    let P: mat3x2f = J.J_f * mat3x3f(M[0], M[1], M[2]);
-    let R: mat2x2f = P * f.x_cov * transpose(P);
+    let J: Dx3x2   = J_project_dp(cam, f.x);
+    let R: mat2x2f = J.J_f * f.x_cov * transpose(J.J_f);
     // todo: more robustly compute the basis.
     //   Q: What actually drives the basis scale?
     //     > the window needs to be big enough to encapsulate the covariance, but

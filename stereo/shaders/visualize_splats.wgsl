@@ -42,8 +42,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
         vec2f( 1., -1.),
     );
     
-    
-    let img_feat    = project_scene_feature(uniforms.view_cam, feature);
+    let img_feat = project_scene_feature(uniforms.view_cam, feature);
     // var img_to_clip = mat3x3f(
     //     vec3f(2., 0., 0.),
     //     vec3f(0., 2., 0.),
@@ -73,21 +72,15 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
     let d = Q * (C * vec4f(feature.x, 1.)).xyz;
     var b = 2. * (d.xy / d.z) - 1.;
     
-    // let M: mat4x3f = world_to_cam(uniforms.view_cam);
-    // let P: mat3x3f = pinhole_projection(uniforms.view_cam.lens);
-    // let pp = uniforms.P * M * vec4f(feature.x, 1.);
-    // let ppp = pp.xy / pp.w;
-    // let pppp = 2 * vec3f(ppp, 1.) - vec3f(1.);
-    
     return VertexOut(
-        // vec4f(pt, 0.1, 1.),
-        vec4f(b + card_pts[vert_idx] * 0.05, 0.5, 1.),
+        vec4f(pt, 0.1, 1.),
+        // vec4f(b + card_pts[vert_idx] * 0.05, 0.5, 1.),
         // ctr + vec4f(card_pts[vert_idx] * 0.05, 0., 0.),
-        // vec4f(pppp.xy + card_pts[vert_idx] * 0.005, 0., 1.),
+        // vec4f(p + card_pts[vert_idx] * 0.05, 0., 1.),
         card_pts[vert_idx] * 0.5 + vec2f(0.5),
         feature.wt,
         // feature.x,
-        vec3(b, 0.5),
+        vec3f(b, 0.5),
     );
 }
 
