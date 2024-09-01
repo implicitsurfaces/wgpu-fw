@@ -84,7 +84,7 @@ fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
     
     let Pz = transpose(Q)[2].xyz;
     let J: mat3x2f = (
-        transpose(mat2x3(x.x * Pz, x.y * Pz)) + mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy)
+        mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy) - transpose(mat2x3(x.x * Pz, x.y * Pz))
     ) * (1. / x_clip.z);
     
     return Dx3x2(x, J);
