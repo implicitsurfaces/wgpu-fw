@@ -87,7 +87,7 @@ const Sample_Invocations: u32 = 4;
 const Wg_Width:           u32 = 64 / Sample_Invocations;
 const Tau:                f32 = 6.28318530717958647692;
 
-@group(0) @binding(0) var<storage,read>       correlations: array<CorrelationWindow>;
+@group(0) @binding(0) var<storage,read>       correlations: array<CorrelationKernel>;
 @group(0) @binding(1) var<storage,read_write> dst_samples:  array<WeightedSample>;
 @group(0) @binding(2) var<uniform>            uniforms:     SampleUniforms;
 
@@ -113,8 +113,8 @@ fn displacement_to_corr(xy: vec2f) -> vec2f {
 
 fn gauss_pdf(x: vec2f, cov: Covariance) -> f32 {
     let dx: vec2f = cov.inv_sqrt_cov * x; // put x in the space of the unit gaussian
-    let r: f32 = dot(dx, dx);
-    return exp(-0.5 * r * r) * cov.i_sqrt_det / Tau;
+    let r2: f32 = dot(dx, dx);
+    return exp(-0.5 * r2) * cov.i_sqrt_det / Tau;
 }
 
 @compute @workgroup_size(Wg_Width, Sample_Invocations)
@@ -131,7 +131,13 @@ fn main(
     // to perform it once; it doesn't matter if multiple cores are doing it simultaneously
     let img: SampleImage = make_sample_image(correlations[feature_idx].correlation);
     let src_feature: FeaturePair = src_features[feature_idx];
-    let sqrt_cov_dx: mat2x2f = sqrt_2x2(src_feature.a.cov + src_feature.b.cov);
+    // put the texture-space covariances in the kernel space
+    let a_tex2kern:   mat2x2f = inverse2x2(src_feature.a.basis);
+    let b_tex2kern:   mat2x2f = inverse2x2(src_feature.b.basis);
+    let a_cov_kernel: mat2x2f = a_tex2kern * src_feature.a.cov * transpose(a_tex2kern);
+    let b_cov_kernel: mat2x2f = b_tex2kern * src_feature.b.cov * transpose(b_tex2kern);
+    // difference and sqrt (sign has no effect on covariance):
+    let sqrt_cov_dx:  mat2x2f = sqrt_2x2(a_cov_kernel + b_cov_kernel);
     let cov: Covariance = Covariance(
         sqrt_cov_dx,
         inverse2x2(sqrt_cov_dx),

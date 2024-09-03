@@ -1,6 +1,11 @@
 // structs.wgsl
 // common structs across multiple stages of stereo fusion
 
+struct FeatureRange {
+    feature_start: u32,
+    feature_end:   u32,
+}
+
 struct SceneFeature {
     q:     vec4f,
     q_cov: mat4x4f,
@@ -15,13 +20,16 @@ struct TreeNode {
     child_end:   u32,
 }
 
-struct CorrelationWindow {
+struct CorrelationKernel {
     correlation: mat4x4f,
 }
 
 struct ImageFeature {
+    // texture-space coordinates
     st:    vec2f,
+    // texture-space covariance matrix
     cov:   mat2x2f,
+    // window basis (in texture space)
     basis: mat2x2f,
 }
 
@@ -42,15 +50,15 @@ struct WeightedSample {
     w: f32,
 }
 
-struct SampleWindow {
+struct SampleKernel {
     r: mat4x4f,
     g: mat4x4f,
     b: mat4x4f,
 }
 
-struct WindowPair {
-    a: SampleWindow,
-    b: SampleWindow,
+struct KernelPair {
+    a: SampleKernel,
+    b: SampleKernel,
 }
 
 struct LensParameters {

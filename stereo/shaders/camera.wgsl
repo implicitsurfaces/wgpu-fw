@@ -36,7 +36,7 @@ struct Dx4x2 {
 // project camera space to image space (on [0,1]^2)
 // image center is (0.5, 0.5); origin at the lower left.
 fn pinhole_projection(lens: LensParameters) -> mat3x3f {
-    let t:   f32 = 2. * tan(lens.fov_radians / 2.);
+    let t:   f32 = 2. * tan(lens.fov_radians / 2.); // factor of 2 for [-1, 1] -> [0, 1]
     let f_x: f32 = 1. / t;
     let f_y: f32 = f_x * lens.aspect;
     return mat3x3f(
@@ -72,7 +72,7 @@ fn J_project_stereographic_dp(x: vec3f) -> Dx3x2 {
     return Dx3x2(uv, J);
 }
 
-// take a point in world space and project it to the image plane
+// take a point in world space and project it to the image plane on [0,1]^2
 // using the given camera state. return the jacobian of the projection
 // about the camera space point.
 fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
@@ -138,21 +138,24 @@ fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
     //         in the expanded search space; rely on quality results to reveal the
     //         true result
     let area: f32 = sqrt(determinant(R));
-    let d:    f32 = 2 * sqrt(area);
+    let d:    f32 = 2. * sqrt(area);
+    // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
+    let basis: mat2x2f = mat2x2f(
+        d,  0.,
+        0., d,
+    );
     return ImageFeature(
         J.f_x,
         R,
-        // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
-        mat2x2f(
-            d,  0.,
-            0., d,
-        ),
+        basis,
     );
 }
 
 fn unproject_kalman_view_difference(
     prior:         Estimate3D,
-    measured_diff: Estimate2D,
+    measured_diff: Estimate2D, // measured difference, in "kernel coordinates"
+    tex2kern_a:    mat2x2f,    // xfs taking a window coord into a kernel coord,
+    tex2kern_b:    mat2x2f,    // for each of the two viewpoints
     cam_a:         CameraState,
     cam_b:         CameraState) -> Estimate3D
 {
@@ -160,15 +163,12 @@ fn unproject_kalman_view_difference(
     // point in the two camera views. we can incorporate this difference
     // into the projection matrix though, and treat the whole "project twice
     // and difference" as a single projection of the 3D state.
-    let p_a: Dx3x2 = J_project_dp(cam_a, prior.x);
-    let p_b: Dx3x2 = J_project_dp(cam_b, prior.x);
-    // transpose so we can vector-select rows
-    let a_H: mat2x3f = transpose(p_a.J_f);
-    let b_H: mat2x3f = transpose(p_b.J_f);
-    let prior_diff: vec2f = p_b.f_x - p_a.f_x;
+    let p_a:   Dx3x2 = J_project_dp(cam_a, prior.x);
+    let p_b:   Dx3x2 = J_project_dp(cam_b, prior.x);
+    let H_a: mat3x2f = tex2kern_a * p_a.J_f;
+    let H_b: mat3x2f = tex2kern_b * p_b.J_f;
     // u_diff = u_b.uv - u_a.uv
-    let P_H: mat3x2f = transpose(
-        mat2x3f(b_H[0] - a_H[0], b_H[1] - a_H[1])
-    );
+    let prior_diff: vec2f = tex2kern_b * p_b.f_x - tex2kern_a * p_a.f_x;
+    let P_H: mat3x2f = H_b - H_a;
     return update_ekf_unproject_2d_3d(prior, prior_diff, measured_diff, P_H);
 }

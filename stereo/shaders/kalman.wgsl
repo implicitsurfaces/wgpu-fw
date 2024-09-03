@@ -66,7 +66,7 @@ fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
     let s01_inv: mat2x2f = inverse2x2(S0 + S1);
     let K: mat2x2f = S0 * s01_inv;
     let J: mat2x2f = I_2x2 - K;
-    let dx: vec2f = b.x - a.x;
+    let dx:  vec2f = b.x - a.x;
     let E: mat2x2f = J * a.sigma * transpose(J);
     
     let e = Estimate2D(
@@ -123,6 +123,15 @@ fn update_ekf_unproject_2d_3d(
 //     it all comes down to how to generate that covariance matrix.
 //     > I think yes. the Q is: if I have E[A], E[B], and E[B-A],
 //       what is E[A,B]?
+//       > this is called cross-covariance. I'm not sure that we actually can measure
+//         anything about it?
+//       > but I think maybe if we really don't know anything about it, it's valid to
+//         set it to zero, and let the unprojection handle any variable interrelationships
+//       > we may be able to use the formula: cov(X + Y) = cov(X) + cov(Y) + 2 * cov(X,Y)
+//         - dimensionality on this seems whack? what's up here
+//     > this is a 6x6 matrix, so we need to code up the inverse for that
+//       (a.xy, b.xy, b.xy - a.xy). note that it's a positive definite matrix,
+//       so this is probably a simpler/cheaper operation than a general inverse.
 fn update_ekf_unproject_initial_2d_3d(
     measure_a: Estimate2D,
     measure_b: Estimate2D,

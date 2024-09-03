@@ -31,11 +31,6 @@ struct FuseUniforms {
     cam_b:       CameraState,
 }
 
-struct FeatureRange {
-    feature_start: u32,
-    feature_end:   u32,
-}
-
 @group(0) @binding(0) var<storage,read> samples:       array<WeightedSample>;
 @group(0) @binding(1) var<uniform>      uniforms:      FuseUniforms;
 @group(0) @binding(2) var<uniform>      feature_range: FeatureRange;
@@ -49,8 +44,8 @@ struct FeatureRange {
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     var sample_count: u32 = Sample_Invocations * uniforms.multiple * 2;
-    let feature_idx: u32 = global_id.x;
-    let i_idx:       u32 = global_id.x + feature_range.feature_start;
+    let feature_idx:  u32 = global_id.x;
+    let i_idx:        u32 = global_id.x + feature_range.feature_start;
     if i_idx >= arrayLength(&feature_idx_buffer) || i_idx > feature_range.feature_end {
         return;
     }
@@ -88,11 +83,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     } else if uniforms.fuse_mode == FuseMode_StereoUpdate {
         // perform a stereo update.
         // the correlogram is just a *correction* to the difference between
-        // the two views; add them together:
-        let dx: vec2f = src_img_feature.b.st - src_img_feature.a.st;
+        // the two views; add them together. take the difference in kernel-space.
+        let tex2kern_a: mat2x2f = inverse2x2(src_img_feature.a.basis);
+        let tex2kern_b: mat2x2f = inverse2x2(src_img_feature.b.basis);
+        let dx: vec2f = tex2kern_b * src_img_feature.b.st - tex2kern_a * src_img_feature.a.st;
         let updated: Estimate3D = unproject_kalman_view_difference(
             Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
             Estimate2D(mu + dx, est_cov),
+            tex2kern_a,
+            tex2kern_b,
             uniforms.cam_a,
             uniforms.cam_b
         );

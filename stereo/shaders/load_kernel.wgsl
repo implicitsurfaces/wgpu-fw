@@ -2,7 +2,7 @@
 
 // sample the window around each feature in a pair
 
-@group(0) @binding(0) var<storage,read_write> window_pairs: array<WindowPair>;
+@group(0) @binding(0) var<storage,read_write> kernel_pairs: array<KernelPair>;
 @group(0) @binding(1) var tex_sampler: sampler;
 
 @group(1) @binding(0) var tex_a: texture_2d<f32>;
@@ -60,11 +60,11 @@ fn main(
     
     // todo: use the chain rule to compute the gradient of the texture sample,
     //   if a uniform flag requests it.
-    window_pairs[feature_idx].a.r[x] = r_a;
-    window_pairs[feature_idx].a.g[x] = g_a;
-    window_pairs[feature_idx].a.b[x] = b_a;
+    kernel_pairs[feature_idx].a.r[x] = r_a;
+    kernel_pairs[feature_idx].a.g[x] = g_a;
+    kernel_pairs[feature_idx].a.b[x] = b_a;
     
-    window_pairs[feature_idx].b.r[x] = r_b;
-    window_pairs[feature_idx].b.g[x] = g_b;
-    window_pairs[feature_idx].b.b[x] = b_b;
+    kernel_pairs[feature_idx].b.r[x] = r_b;
+    kernel_pairs[feature_idx].b.g[x] = g_b;
+    kernel_pairs[feature_idx].b.b[x] = b_b;
 }

@@ -13,9 +13,9 @@ struct Uniforms {
     n:       u32,
 }
 
-@group(0) @binding(0) var<storage,read> correlation_windows: array<CorrelationWindow>;
+@group(0) @binding(0) var<storage,read> correlation_windows: array<CorrelationKernel>;
 @group(0) @binding(1) var<uniform>      uniforms: Uniforms;
-@group(0) @binding(2) var<storage,read> sample_windows: array<WindowPair>;
+@group(0) @binding(2) var<storage,read> sample_windows: array<KernelPair>;
 @group(0) @binding(3) var tex_sampler: sampler;
 @group(0) @binding(4) var tex: texture_2d<f32>;
 
