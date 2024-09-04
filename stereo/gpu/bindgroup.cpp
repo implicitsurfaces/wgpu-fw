@@ -23,6 +23,8 @@ BindGroup::~BindGroup() {
 }
 
 BindGroup& BindGroup::operator=(const BindGroup& other) {
+    // we have to make a temporary because the const qualifiers on the cpp API
+    // are all fucked up. incref/decref methods should be const, but it's not
     wgpu::BindGroup tmp = other._bindgroup;
     if (tmp) tmp.reference(); // increment BEFORE release
     if (_bindgroup) _bindgroup.release();

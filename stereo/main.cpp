@@ -164,24 +164,31 @@ struct Viewer {
     
 };
 
-int main(int argc, char** argv) {
-    CaptureRef cap = std::make_shared<cv::VideoCapture>(0);
+static CaptureRef _get_capture(int index) {
+    CaptureRef cap = std::make_shared<cv::VideoCapture>(index);
     while (not cap->isOpened()) {
         // this can happen if the host's security policy requires
         // user approval to start the camera. wait for it to be ready.
-        cap->open(0);
+        cap->open(index);
         std::this_thread::sleep_for(100ms);
     }
-    // Viewer viewer {&solver};
-    Visualizer viewer {{cap}};
-    viewer.solver->capture(0);
+    return cap;
+}
+
+int main(int argc, char** argv) {
+    CaptureRef caps[] = {
+        _get_capture(0),
+        _get_capture(1)
+    };
+    Visualizer viewer {{caps[0], caps[1]}};
 #if RUN_ONCE
     viewer.do_frame();
 #else
     bool ok = true;
+    std::cout << std::endl << std::endl << "====== begin ======" << std::endl;
     while (not glfwWindowShouldClose(viewer.window.window)) {
         glfwPollEvents();
-        viewer.solver->capture(0);
+        viewer.solver->capture_all();
         viewer.do_frame();
         viewer.solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate
@@ -190,7 +197,9 @@ int main(int argc, char** argv) {
             break;
         }
     }
-    cap->release();
+    for (auto& cap : caps) {
+        cap->release();
+    }
 #endif
     if (ok) std::cout << "finished!" << std::endl;
     else    std::cerr << "Aborted."   << std::endl;

@@ -1,4 +1,5 @@
 #include <stereo/gpu/texture.h>
+#include <stereo/gpu/bindgroup.h>
 
 namespace stereo {
 
@@ -9,7 +10,7 @@ struct MipGenerator;
 struct MipTexture {
     
     Texture texture;
-    std::vector<wgpu::BindGroup> bind_groups;
+    std::vector<BindGroup> bind_groups;
     MipGenerator* generator  = nullptr;
     
     friend struct MipGenerator;
@@ -19,17 +20,10 @@ private:
     MipTexture(wgpu::Texture texture, MipGenerator& gen);
     
     void _init();
-    void _release();
 
 public:
     
-    MipTexture();
-    MipTexture(const MipTexture&);
-    MipTexture(MipTexture&&);
-    ~MipTexture();
-    
-    MipTexture& operator=(const MipTexture&);
-    MipTexture& operator=(MipTexture&&);
+    MipTexture() = default;
     
     void generate();
 };

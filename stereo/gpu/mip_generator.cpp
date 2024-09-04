@@ -25,8 +25,6 @@ fn compute_mipmap(@builtin(global_invocation_id) id: vec3<u32>) {
  * MipTexture          *
  ***********************/
 
-MipTexture::MipTexture() {}
-
 MipTexture::MipTexture(wgpu::Texture texture, MipGenerator& gen):
         texture(
             texture,
@@ -35,45 +33,6 @@ MipTexture::MipTexture(wgpu::Texture texture, MipGenerator& gen):
         generator(&gen)
 {
     _init();
-}
-
-MipTexture::MipTexture(const MipTexture& other):
-    texture(other.texture),
-    bind_groups(other.bind_groups),
-    generator(other.generator)
-{
-    for (auto bg : bind_groups) {
-        bg.reference();
-    }
-}
-
-MipTexture::MipTexture(MipTexture&& other):
-    texture(std::move(other.texture)),
-    bind_groups(other.bind_groups),
-    generator(other.generator)
-{
-    other.bind_groups.clear();
-}
-
-MipTexture::~MipTexture() {
-    _release();
-}
-
-MipTexture& MipTexture::operator=(MipTexture&& other) {
-    std::swap(texture, other.texture);
-    std::swap(bind_groups, other.bind_groups);
-    std::swap(generator, other.generator);
-    return *this;
-}
-
-MipTexture& MipTexture::operator=(const MipTexture& other) {
-    _release();
-    texture   = other.texture;
-    generator = other.generator;
-    for (auto bg : bind_groups) {
-        bg.reference();
-    }
-    return *this;
 }
 
 void MipTexture::_init() {
@@ -94,13 +53,6 @@ void MipTexture::_init() {
         bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
         bind_groups.push_back(texture.device().createBindGroup(bgd));
     }
-}
-
-void MipTexture::_release() {
-    for (auto bg : bind_groups) {
-        bg.release();
-    }
-    bind_groups.clear();
 }
 
 void MipTexture::generate() {
