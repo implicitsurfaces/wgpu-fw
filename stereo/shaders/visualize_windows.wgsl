@@ -71,7 +71,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     
     // otherwise, evaluate the correlation at this point inside the tile
     var corr:   mat4x4f = correlation_windows[idx].correlation;
-    var smps = sample_windows[idx].a.r;
+    var smps_a = sample_windows[idx].a.r;
+    var smps_b = sample_windows[idx].b.r;
     var rotate = mat4x4f(
         0, 0, 1, 0,
         0, 0, 0, 1,
@@ -80,11 +81,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     );
     
     let q: f32 = eval_interp_image(rotate * corr * rotate, tile_xy);
-    let b: f32 = eval_4x4_image(smps, tile_xy);
+    let a: f32 = eval_4x4_image(smps_a, tile_xy);
+    let b: f32 = eval_4x4_image(smps_b, tile_xy);
     
     if (tile_xy.x < 0.05 || tile_xy.y < 0.05) {
         return vec4f(0.25, 0.12, 0.12, 1.);
     }
     
-    return vec4f(q, b, q, 1.);
+    return vec4f(0.66 * a, 0.66 * b, 2. * q, 1.);
 }

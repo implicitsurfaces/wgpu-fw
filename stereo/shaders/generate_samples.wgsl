@@ -80,8 +80,6 @@ struct SampleUniforms {
 // todo: wgpu support for constants is still in progress
 // number of invocations for samples
 // @id(1000) override Sample_Invocations: u32 = 4;
-// number of samples per invocation
-// @id(1001) override Sample_Multiple: u32 = 4;
 
 const Sample_Invocations: u32 = 4;
 const Wg_Width:           u32 = 64 / Sample_Invocations;

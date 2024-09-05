@@ -12,6 +12,7 @@ using namespace stereo;
 using namespace std::chrono_literals;
 
 #define RUN_ONCE 0
+#define ONE_SOURCE 1
 #define ABORT_ON_ERROR 1
 
 // todo: mip generation probably does not handle edges correctly
@@ -176,11 +177,21 @@ static CaptureRef _get_capture(int index) {
 }
 
 int main(int argc, char** argv) {
+#if ONE_SOURCE
+    CaptureRef cap = _get_capture(0);
+    Visualizer viewer {{cap}};
+    FrameSource& fs0 = viewer.solver->frame_source(0);
+    FrameSource  fs1 = fs0;
+    fs1.camera_state().lens.k_c = vec2(0.59, 0.5);
+    fs1.camera_state().position = vec3(0.8, 0., 0.);
+    viewer.solver->add_source(fs1);
+#else
     CaptureRef caps[] = {
         _get_capture(0),
         _get_capture(1)
     };
     Visualizer viewer {{caps[0], caps[1]}};
+#endif
 #if RUN_ONCE
     viewer.do_frame();
 #else
@@ -188,7 +199,11 @@ int main(int argc, char** argv) {
     std::cout << std::endl << std::endl << "====== begin ======" << std::endl;
     while (not glfwWindowShouldClose(viewer.window.window)) {
         glfwPollEvents();
+#if ONE_SOURCE
+        viewer.solver->capture(0);
+#else
         viewer.solver->capture_all();
+#endif
         viewer.do_frame();
         viewer.solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate
@@ -196,11 +211,16 @@ int main(int argc, char** argv) {
             ok = false;
             break;
         }
+        viewer.solver->swap_feature_buffers();
     }
+#if ONE_SOURCE
+    cap->release();
+#else
     for (auto& cap : caps) {
         cap->release();
     }
-#endif
+#endif // ONE_SOURCE
+#endif // RUN_ONCE
     if (ok) std::cout << "finished!" << std::endl;
     else    std::cerr << "Aborted."   << std::endl;
 }

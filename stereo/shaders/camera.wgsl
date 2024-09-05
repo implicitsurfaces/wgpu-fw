@@ -137,17 +137,22 @@ fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
     //       - vague idea: particle filter that shit. spawn a bunch of new trees
     //         in the expanded search space; rely on quality results to reveal the
     //         true result
-    let area: f32 = sqrt(determinant(R));
-    let d:    f32 = 2. * sqrt(area);
-    // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
-    let basis: mat2x2f = mat2x2f(
-        d,  0.,
-        0., d,
+    // let area: f32 = sqrt(determinant(R));
+    // let d:    f32 = 2. * sqrt(area);
+    // let basis: mat2x2f = mat2x2f(
+    //     d,  0.,
+    //     0., d,
+    // );
+    let basis_scene: mat2x3f = mat2x3f(
+        qrot(f.q, vec3f(1., 0., 0.)),
+        qrot(f.q, vec3f(0., 1., 0.)),
     );
+    // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
     return ImageFeature(
         J.f_x,
         R,
-        basis,
+        // project the 3D plane basis to 2D
+        J.J_f * basis_scene,
     );
 }
 

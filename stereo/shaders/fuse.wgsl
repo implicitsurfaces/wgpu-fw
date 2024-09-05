@@ -2,20 +2,15 @@
 // #include "kalman.wgsl"
 // #include "camera.wgsl"
 
-// xxx todo: we should just output the fused difference.
-//   - this will be used in different ways depending on the solver stage
-//   - the L/R registration will Kalman un-project the difference to the original state
-//   - the time registration will do a Kalman update of the current estimate only
 // todo: could do basis-conditioning steps on both parent and child;
 //   ensure: child < min_size(updated parent cov) < parent < max_size(updated parent cov)
 // todo: need to figure and store the "quality" estimate (probs the normalization factor).
 //   - could also use the quantified_update formula, and incorporate this
 
 // number of invocations for samples
-// @id(1000) override Sample_Invocations: u32 = 4;
-// number of samples per invocation
-// @id(1001) override Sample_Multiple: u32 = 4;
+// @id(1000) override Sample_Invocations: u32 = 4; // wgpu support for constants still IP
 
+// sync with generate_samples.wgsl:
 const Sample_Invocations: u32 = 4;
 
 alias FuseMode = u32;
@@ -36,7 +31,7 @@ struct FuseUniforms {
 @group(0) @binding(2) var<uniform>      feature_range: FeatureRange;
 
 // nb: different bindgroups below!
-@group(1) @binding(0) var<storage,read>       src_img_features:   array<FeaturePair>;
+@group(1) @binding(0) var<storage,read>       src_image_features: array<FeaturePair>;
 @group(2) @binding(0) var<storage,read>       src_scene_features: array<SceneFeature>;
 @group(3) @binding(0) var<storage,read_write> dst_scene_features: array<SceneFeature>;
 @group(4) @binding(0) var<storage,read>       feature_idx_buffer: array<u32>;
@@ -72,22 +67,31 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let k: f32 = 1. / w_sum;
     let est_cov: mat2x2f = k * running_cov;
     
-    let src_img_feature:   FeaturePair  = src_img_features[feature_idx];
+    let src_image_feature: FeaturePair  = src_image_features[feature_idx];
     let src_scene_feature: SceneFeature = src_scene_features[scene_feature_idx];
     
+    var updated: Estimate3D;
     if uniforms.fuse_mode == FuseMode_TimeUpdate {
         // perform a time update
-        
-        // xxx todo: this
-        
+        let B: mat2x2f = src_image_feature.b.basis;
+        // estimate the mean + covariance in cam-b's view (the current time),
+        // in texture coordinates.
+        let x: vec2f = src_image_feature.b.st + B * mu;
+        let J_P: Dx3x2 = J_project_dp(uniforms.cam_b, src_scene_feature.x);
+        updated = update_ekf_unproject_2d_3d(
+            Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
+            J_P.f_x,
+            Estimate2D(x, B * est_cov * transpose(B)),
+            J_P.J_f
+        );
     } else if uniforms.fuse_mode == FuseMode_StereoUpdate {
         // perform a stereo update.
         // the correlogram is just a *correction* to the difference between
         // the two views; add them together. take the difference in kernel-space.
-        let tex2kern_a: mat2x2f = inverse2x2(src_img_feature.a.basis);
-        let tex2kern_b: mat2x2f = inverse2x2(src_img_feature.b.basis);
-        let dx: vec2f = tex2kern_b * src_img_feature.b.st - tex2kern_a * src_img_feature.a.st;
-        let updated: Estimate3D = unproject_kalman_view_difference(
+        let tex2kern_a: mat2x2f = inverse2x2(src_image_feature.a.basis);
+        let tex2kern_b: mat2x2f = inverse2x2(src_image_feature.b.basis);
+        let dx: vec2f = tex2kern_b * src_image_feature.b.st - tex2kern_a * src_image_feature.a.st;
+        updated = unproject_kalman_view_difference(
             Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
             Estimate2D(mu + dx, est_cov),
             tex2kern_a,
@@ -95,17 +99,18 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
             uniforms.cam_a,
             uniforms.cam_b
         );
-        dst_scene_features[scene_feature_idx] = SceneFeature(
-            // todo: no update to feature orientation for now
-            src_scene_feature.q,
-            src_scene_feature.q_cov,
-            updated.x,
-            updated.sigma,
-            1. // xxx todo: update quality estimate
-        );
     } else if uniforms.fuse_mode == FuseMode_StereoInit {
         
         // xxx todo: use update_ekf_unproject_initial_2d_3d()
+        
     }
+    dst_scene_features[scene_feature_idx] = SceneFeature(
+        // todo: no update to feature orientation for now
+        src_scene_feature.q,
+        src_scene_feature.q_cov,
+        updated.x,
+        updated.sigma,
+        1. // xxx todo: update quality estimate
+    );
     
 }
