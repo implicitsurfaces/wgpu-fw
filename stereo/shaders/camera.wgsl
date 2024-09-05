@@ -143,9 +143,10 @@ fn project_scene_feature(cam: CameraState, f: SceneFeature) -> ImageFeature {
     //     d,  0.,
     //     0., d,
     // );
+    let s: f32 = f.scale;
     let basis_scene: mat2x3f = mat2x3f(
-        qrot(f.q, vec3f(1., 0., 0.)),
-        qrot(f.q, vec3f(0., 1., 0.)),
+        qrot(f.q, vec3f( s, 0., 0.)),
+        qrot(f.q, vec3f(0.,  s, 0.)),
     );
     // axis-aligned basis, with the area of the 2-SD covariance ellipsoid
     return ImageFeature(

@@ -11,6 +11,7 @@ struct SceneFeature {
     q_cov: mat4x4f,
     x:     vec3f,
     x_cov: mat3x3f,
+    scale: f32,
     wt:    f32,
 }
 

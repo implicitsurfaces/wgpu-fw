@@ -15,7 +15,7 @@ using namespace std::chrono_literals;
 #define ONE_SOURCE 1
 #define ABORT_ON_ERROR 1
 
-// todo: mip generation probably does not handle edges correctly
+// todo: mip generation does not handle edges correctly
 
 const char* WGSL_SHD_SRC = R"(
 @group(0) @binding(0) var tex_image: texture_2d<f32>;
@@ -81,7 +81,9 @@ struct Viewer {
     void _init() {
         wgpu::BindGroupEntry bind_entry = {};
         bind_entry.binding     = 0;
-        bind_entry.textureView = solver->frame_source(0).filtered.laplace.view();
+        bind_entry.textureView = 
+            // xxx todo: gotta set this every frame, bc swap buffers
+            solver->frame_source(0, FrameSelection::Current).filtered.laplace.view();
         
         wgpu::BindGroupDescriptor bgd;
         bgd.layout     = bind_layout;
@@ -180,8 +182,8 @@ int main(int argc, char** argv) {
 #if ONE_SOURCE
     CaptureRef cap = _get_capture(0);
     Visualizer viewer {{cap}};
-    FrameSource& fs0 = viewer.solver->frame_source(0);
-    FrameSource  fs1 = fs0;
+    CaptureFrame& fs0 = viewer.solver->frame_source(0, FrameSelection::Current);
+    CaptureFrame  fs1 = fs0;
     fs1.camera_state().lens.k_c = vec2(0.59, 0.5);
     fs1.camera_state().position = vec3(0.8, 0., 0.);
     viewer.solver->add_source(fs1);

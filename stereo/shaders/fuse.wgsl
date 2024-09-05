@@ -110,6 +110,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         src_scene_feature.q_cov,
         updated.x,
         updated.sigma,
+        src_scene_feature.scale,
         1. // xxx todo: update quality estimate
     );
     

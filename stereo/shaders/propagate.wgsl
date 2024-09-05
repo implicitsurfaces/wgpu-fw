@@ -34,6 +34,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
             src_child_t0.q_cov,
             src_child_t0.x + dx,
             src_child_t0.x_cov,
+            src_child_t0.scale,
             src_child_t0.wt,
         );
     }

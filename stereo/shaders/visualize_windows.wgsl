@@ -13,11 +13,10 @@ struct Uniforms {
     n:       u32,
 }
 
-@group(0) @binding(0) var<storage,read> correlation_windows: array<CorrelationKernel>;
+@group(0) @binding(0) var<storage,read> correlation_kernels: array<CorrelationKernel>;
 @group(0) @binding(1) var<uniform>      uniforms: Uniforms;
-@group(0) @binding(2) var<storage,read> sample_windows: array<KernelPair>;
+@group(0) @binding(2) var<storage,read> sample_kernels: array<KernelPair>;
 @group(0) @binding(3) var tex_sampler: sampler;
-@group(0) @binding(4) var tex: texture_2d<f32>;
 
 @vertex
 fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
@@ -45,34 +44,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let idx:        u32 = tile_ij.y * uniforms.x_tiles + tile_ij.x;
     
     // if we're out of bounds, return transparent black
-    if idx >= arrayLength(&correlation_windows) { return vec4<f32>(0.); }
-    
-    // var v:    vec4f   = vec4f(1., 2., 3., 4.) / 4.;
-    // var test: mat4x4f = outer4x4(v);
-    // 
-    // let theta: f32 = 0.125 * 3.14159265358979;
-    // let rot: mat2x2f = mat2x2f(
-    //     cos(theta), -sin(theta),
-    //     sin(theta),  cos(theta)
-    // );
-    
-    // var a: vec3f = textureSampleGrad(
-    //     tex,
-    //     tex_sampler,
-    //     vec2f(1.) - in.uv,
-    //     rot * vec2<f32>(0.05, 0.),
-    //     rot * vec2<f32>(0., 0.001)
-    // ).rgb;
-    // var dims: vec2u = textureDimensions(tex, 5);
-    // var a: vec3f = textureLoad(tex, vec2i(uv * vec2f(dims)), 5).rgb;
-    // a = textureSampleLevel(tex, tex_sampler, vec2f(1.) - in.uv, 5.).rgb;
-    // a = a * 0.5 + 0.5;
-    
+    if idx >= arrayLength(&correlation_kernels) { return vec4<f32>(0.); }
     
     // otherwise, evaluate the correlation at this point inside the tile
-    var corr:   mat4x4f = correlation_windows[idx].correlation;
-    var smps_a = sample_windows[idx].a.r;
-    var smps_b = sample_windows[idx].b.r;
+    var corr:   mat4x4f = correlation_kernels[idx].correlation;
+    var smps_a = sample_kernels[idx].a.r;
+    var smps_b = sample_kernels[idx].b.r;
     var rotate = mat4x4f(
         0, 0, 1, 0,
         0, 0, 0, 1,
