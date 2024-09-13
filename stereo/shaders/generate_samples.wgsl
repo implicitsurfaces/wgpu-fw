@@ -125,6 +125,9 @@ fn main(
     let invoc_idx:   u32 = global_id.y;
     if feature_idx >= arrayLength(&src_features) { return; }
     
+    // compute the normalization factor for the correlation function;
+    // i.e. 1 / (the sum of all the elements)
+    let pdf_norm: f32 = 1. / dot(vec4f(1.), correlations[feature_idx].correlation * vec4f(1.));
     // we do this redundantly in each invocation, but we _have_ to spend the time
     // to perform it once; it doesn't matter if multiple cores are doing it simultaneously
     let img: SampleImage = make_sample_image(correlations[feature_idx].correlation);
@@ -141,6 +144,11 @@ fn main(
         inverse2x2(sqrt_cov_dx),
         1. / determinant(sqrt_cov_dx),
     );
+    // normalization factor to obtain the cosine distance from the evaluated
+    // correlation, which gives us the dot product of the two signals at the
+    // sampled displacement. mag2 equals the product of the squared mangitudes
+    // of all the input signals. we leave it squared because the signal is also squared.
+    let cosine_norm: f32 = 1. / correlations[feature_idx].mag2;
     
     let sample_count: u32 = uniforms.multiple * Sample_Invocations * 2;
     let samples_per_invocation: u32 = uniforms.multiple * 2;
@@ -154,22 +162,29 @@ fn main(
             let feature_sample_id: u32 = invoc_idx * uniforms.multiple + i;
             let sample_base:       u32 = population_base + invoc_idx * samples_per_invocation + i * 2;
             let gaus_sample:     vec2f = cov.sqrt_cov * unit_gaussian_2d_samples[feature_sample_id];
-            var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
-            xcor_sample                = corr_to_displacement(xcor_sample);
+            let xcor_sample_st:  vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
+            let xcor_sample            = corr_to_displacement(xcor_sample_st);
+            
+            let f_at_gauss:        f32 = eval_interp_image(img.image, displacement_to_corr(gaus_sample));
+            let f_at_xcor:         f32 = eval_interp_image(img.image, xcor_sample_st);
             
             let pdf_gaus_at_xcor:  f32 = gauss_pdf(xcor_sample, cov);
-            let pdf_xcor_at_gaus:  f32 = eval_interp_image(img.image, displacement_to_corr(gaus_sample));
+            let pdf_xcor_at_gaus:  f32 = max(pdf_norm * f_at_gauss, 0.);
+            // feature cosine distances for each of the displacements:
+            var q_at_xcor:         f32 = cosine_norm * f_at_xcor;
+            var q_at_gauss:        f32 = cosine_norm * f_at_gauss;
             // write the samples in feature.basis coordinates
-            dst_samples[sample_base]     = WeightedSample(xcor_sample, pdf_gaus_at_xcor);
-            dst_samples[sample_base + 1] = WeightedSample(gaus_sample, pdf_xcor_at_gaus);
+            dst_samples[sample_base]     = WeightedSample(xcor_sample, pdf_gaus_at_xcor, q_at_xcor);
+            dst_samples[sample_base + 1] = WeightedSample(gaus_sample, pdf_xcor_at_gaus, q_at_gauss);
         }
     } else if uniforms.mode == SampleMode_Correlation {
         for (var i: u32 = 0u; i < uniforms.multiple * 2; i++) {
             let feature_sample_id: u32 = invoc_idx * uniforms.multiple + i;
             let sample_base:       u32 = population_base + invoc_idx * samples_per_invocation + i;
-            var xcor_sample:     vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
-            xcor_sample                = corr_to_displacement(xcor_sample);
-            dst_samples[sample_base]   = WeightedSample(xcor_sample, 1.);
+            let xcor_sample_st:  vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
+            let xcor_sample:     vec2f = corr_to_displacement(xcor_sample_st);
+            let q:                 f32 = cosine_norm * eval_interp_image(img.image, xcor_sample_st);
+            dst_samples[sample_base]   = WeightedSample(xcor_sample, 1., q);
         }
     }
 }

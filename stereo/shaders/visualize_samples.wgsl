@@ -68,7 +68,9 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4f {
     var c: vec3f;
-    if (in.sample_id & 1u) != 0u {
+    if (in.weight < 0) {
+        c = vec3f(0., 1., 0.);
+    } else if (in.sample_id & 1u) != 0u {
         // gauss sample
         c = vec3f(1., 0.4118, 0.8118);
     } else {

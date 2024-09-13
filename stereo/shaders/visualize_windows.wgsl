@@ -44,10 +44,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let idx:        u32 = tile_ij.y * uniforms.x_tiles + tile_ij.x;
     
     // if we're out of bounds, return transparent black
-    if idx >= arrayLength(&correlation_kernels) { return vec4<f32>(0.); }
+    if idx >= arrayLength(&correlation_kernels) { return vec4f(0.); }
     
     // otherwise, evaluate the correlation at this point inside the tile
-    var corr:   mat4x4f = correlation_kernels[idx].correlation;
+    let ker    = correlation_kernels[idx];
+    var corr: mat4x4f = ker.correlation;
     var smps_a = sample_kernels[idx].a.r;
     var smps_b = sample_kernels[idx].b.r;
     var rotate = mat4x4f(
@@ -61,9 +62,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let a: f32 = eval_4x4_image(smps_a, tile_xy);
     let b: f32 = eval_4x4_image(smps_b, tile_xy);
     
+    let ker_norm: f32 = 1. / dot(vec4f(1.), corr * vec4f(1.));
+    var k:        f32 = 1. / ker.mag2;
+    
     if (tile_xy.x < 0.05 || tile_xy.y < 0.05) {
         return vec4f(0.25, 0.12, 0.12, 1.);
     }
     
-    return vec4f(0.66 * a, 0.66 * b, 2. * q, 1.);
+    // disable quality norm:
+    // k = ker_norm;
+    
+    return vec4f(0.66 * a, 0.66 * b, ker_norm * q, 1.);
+    // return vec4f(0.66 * a, ker_norm * q, k * q, 1.);
 }

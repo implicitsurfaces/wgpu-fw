@@ -9,12 +9,12 @@ const Tau: f32 = 6.28318530717958647692;
 //  better numerical properties.
 
 struct Estimate2D {
-    x:          vec2f,
+    x:     vec2f,
     sigma: mat2x2f,
 }
 
 struct Estimate3D {
-    x:          vec3f,
+    x:     vec3f,
     sigma: mat3x3f,
 }
 

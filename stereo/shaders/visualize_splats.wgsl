@@ -15,12 +15,12 @@ struct SplatUniforms {
     P:        mat4x4f,
 }
 
-@group(0) @binding(0) var<storage,read>  features: array<SceneFeature>;
-@group(0) @binding(1) var<uniform>       uniforms: SplatUniforms;
-@group(0) @binding(2) var gauss_tex:     texture_2d<f32>;
-@group(0) @binding(3) var gauss_sampler: sampler;
+@group(0) @binding(0) var<uniform>       uniforms: SplatUniforms;
+@group(0) @binding(1) var gauss_tex:     texture_2d<f32>;
+@group(0) @binding(2) var gauss_sampler: sampler;
 
 @group(1) @binding(0) var video_tex:     texture_2d<f32>;
+@group(2) @binding(0) var<storage,read>  features: array<SceneFeature>;
 
 @vertex
 fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
@@ -69,5 +69,5 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4f {
     let v:  f32 = textureSample(gauss_tex, gauss_sampler, in.st).r;
-    return vec4f(vec3f(in.world_p), in.wt * v * 0.025);
+    return vec4f(vec3f(in.world_p), v * 0.1);
 }

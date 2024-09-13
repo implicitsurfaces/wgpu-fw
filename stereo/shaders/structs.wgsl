@@ -22,7 +22,8 @@ struct TreeNode {
 }
 
 struct CorrelationKernel {
-    correlation: mat4x4f,
+    correlation: mat4x4f, // unnormalized correlation
+    mag2:        f32,     // product of magnitude^2 of all the kernels
 }
 
 struct ImageFeature {
@@ -39,6 +40,12 @@ struct FeaturePair {
     b: ImageFeature,
 }
 
+struct DebugFeature2D {
+    x:     vec2f,
+    sigma: mat2x2f,
+    q:     f32,
+}
+
 struct MatcherUniforms {
     tree_depth:       i32,
     feature_offset:   u32,
@@ -49,6 +56,7 @@ struct MatcherUniforms {
 struct WeightedSample {
     x: vec2f,
     w: f32,
+    f: f32,
 }
 
 struct SampleKernel {
@@ -67,9 +75,7 @@ struct LensParameters {
     aspect:      f32,
     x_c:         vec2f, // x_c (center of distortion)
     p_12:        vec2f, // p1, p2 (tangential distortion)
-    // we can't do array<f32,6> because there are draconian stride requirements.
-    k_1_4: vec4f, // k1 ... k4 (radial distortion coeffs)
-    k_5_6: vec2f, // k5, k6 (remaining radial distortion coeffs)
+    k_1_3:       vec3f, // k1 ... k3 (radial distortion coeffs)
 }
 
 // camera coordinates are opengl convention:

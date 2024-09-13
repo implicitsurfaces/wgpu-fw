@@ -12,6 +12,13 @@ struct cvec4 {
     imag: vec4f,
 }
 
+struct Correlation {
+    // correlogram
+    correlation: mat4x4f,
+    // product of mag2 of the multiplicands
+    mag2_ab: f32,
+}
+
 fn mul_mm(p: cmat4, q: cmat4) -> cmat4 {
     let real: mat4x4f = p.real * q.real - p.imag * q.imag;
     let imag: mat4x4f = p.real * q.imag + p.imag * q.real;
@@ -61,18 +68,23 @@ fn add(m0: cmat4, m1: cmat4) -> cmat4 {
     return cmat4(m0.real + m1.real, m0.imag + m1.imag);
 }
 
+// sum(a . a^†)
+fn cnorm2(m: cmat4) -> f32 {
+    return dot(vec4f(1.), complex_mod2(m) * vec4f(1.));
+}
+
 fn dft4x4(img: cmat4) -> cmat4 {
     let dft: cmat4 = cmat4(
         mat4x4f(
-            1.,  1.,  1.,  1., 
-            1.,  0., -1.,  0., 
-            1., -1.,  1., -1., 
+            1.,  1.,  1.,  1.,
+            1.,  0., -1.,  0.,
+            1., -1.,  1., -1.,
             1.,  0., -1.,  0.
         ),
         mat4x4f(
-            0.,  0.,  0.,  0., 
-            0., -1.,  0.,  1., 
-            0.,  0.,  0.,  0., 
+            0.,  0.,  0.,  0.,
+            0., -1.,  0.,  1.,
+            0.,  0.,  0.,  0.,
             0.,  1.,  0., -1.
         )
     );
@@ -99,12 +111,31 @@ fn cross_correlation(img_0: cmat4, img_1: cmat4) -> cmat4 {
 fn normed_cross_correlation(img_0: cmat4, img_1: cmat4) -> mat4x4f {
     let xcor: cmat4 = cross_correlation(img_0, img_1);
     let m2: mat4x4f = complex_mod2(xcor);
-    let sum: f32 = dot(vec4f(1.), m2 * vec4f(1.));
+    let sum:    f32 = dot(vec4f(1.), m2 * vec4f(1.));
     if sum == 0. {
         let e:  f32   = 1. / 16.;
         let ev: vec4f = vec4f(e);
         return mat4x4f(ev, ev, ev, ev);
     } else {
         return m2 * (1. / sum);
+    }
+}
+
+fn quantified_cross_correlation(img_0: cmat4, img_1: cmat4) -> Correlation {
+    let xcor: cmat4 = cross_correlation(img_0, img_1);
+    let m2: mat4x4f = complex_mod2(xcor);
+    let sum:    f32 = dot(vec4f(1.), m2 * vec4f(1.));
+    if sum == 0. {
+        let e:  f32   = 1. / 16.;
+        let ev: vec4f = vec4f(e);
+        return Correlation(
+            mat4x4f(ev, ev, ev, ev),
+            1.,
+        );
+    } else {
+        return Correlation(
+            m2,
+            cnorm2(img_0) * cnorm2(img_1),
+        );
     }
 }

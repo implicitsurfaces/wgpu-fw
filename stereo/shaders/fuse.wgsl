@@ -32,20 +32,23 @@ struct FuseUniforms {
 
 // nb: different bindgroups below!
 @group(1) @binding(0) var<storage,read>       src_image_features: array<FeaturePair>;
-@group(2) @binding(0) var<storage,read>       src_scene_features: array<SceneFeature>;
-@group(3) @binding(0) var<storage,read_write> dst_scene_features: array<SceneFeature>;
-@group(4) @binding(0) var<storage,read>       feature_idx_buffer: array<u32>;
+@group(2) @binding(0) var<storage,read_write> scene_features:     array<SceneFeature>;
+@group(3) @binding(0) var<storage,read>       feature_idx_buffer: array<u32>;
+
+@group(4) @binding(0) var<storage,read_write> debug_image_features: array<DebugFeature2D>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     var sample_count: u32 = Sample_Invocations * uniforms.multiple * 2;
     let feature_idx:  u32 = global_id.x;
     let i_idx:        u32 = global_id.x + feature_range.feature_start;
-    if i_idx >= arrayLength(&feature_idx_buffer) || i_idx > feature_range.feature_end {
+    if i_idx >= arrayLength(&feature_idx_buffer) ||
+       i_idx > feature_range.feature_end
+    {
         return;
     }
     let scene_feature_idx: u32 = feature_idx_buffer[i_idx];
-    if scene_feature_idx >= arrayLength(&src_scene_features) { return; }
+    if scene_feature_idx >= arrayLength(&scene_features) { return; }
     
     // compute the "frequency weighted" covariance and mean of the sample set
     // see https://stats.stackexchange.com/questions/193046/online-weighted-covariance
@@ -54,7 +57,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     // image registration.
     var mu:   vec2f = vec2f(0.);
     var w_sum:  f32 = 0.;
-    var running_cov = mat2x2f(); // zero matrix
+    var C:  mat2x2f = mat2x2f(); // zero matrix
+    var q:      f32 = 0.; // quality estimate; a cosine distance
     for (var i: u32 = 0u; i < sample_count; i++) {
         let sample_index: u32 = feature_idx * sample_count + i;
         let sample: WeightedSample = samples[sample_index];
@@ -62,13 +66,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         w_sum += w;
         let dx: vec2f = sample.x - mu;
         mu += dx * w / w_sum;
-        running_cov += w * outer2x2(dx);
+        C  += w * outer2x2(dx, sample.x - mu);
+        q  += w * sample.f;
     }
-    let k: f32 = 1. / w_sum;
-    let est_cov: mat2x2f = k * running_cov;
+    let k: f32 = 1. / (w_sum - 1.); // weight with bessel correction
+    let est_cov: mat2x2f = k * C;
+    let est_q:       f32 = q / w_sum;
     
     let src_image_feature: FeaturePair  = src_image_features[feature_idx];
-    let src_scene_feature: SceneFeature = src_scene_features[scene_feature_idx];
+    let src_scene_feature: SceneFeature = scene_features[scene_feature_idx];
     
     var updated: Estimate3D;
     if uniforms.fuse_mode == FuseMode_TimeUpdate {
@@ -93,7 +99,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         let dx: vec2f = tex2kern_b * src_image_feature.b.st - tex2kern_a * src_image_feature.a.st;
         updated = unproject_kalman_view_difference(
             Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
-            Estimate2D(mu + dx, est_cov),
+            Estimate2D(mu - dx, est_cov), // xxx ???
             tex2kern_a,
             tex2kern_b,
             uniforms.cam_a,
@@ -104,14 +110,28 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         // xxx todo: use update_ekf_unproject_initial_2d_3d()
         
     }
-    dst_scene_features[scene_feature_idx] = SceneFeature(
+    
+    // todo: how to update the quality estimate?
+    //   - geometric mean of old and new?
+    //   - weighted geometric mean, based on quantified overlap?
+    //     - i.e., a strong update means the quality is more like the new value,
+    //       while a weak estimate is more like the old value.
+    //   - consideration: want quality to remain stable in magnitude over time;
+    //     this is trivial if we use a geometric mean.
+    //   - a raw product would diminish
+    scene_features[scene_feature_idx] = SceneFeature(
         // todo: no update to feature orientation for now
         src_scene_feature.q,
         src_scene_feature.q_cov,
         updated.x,
         updated.sigma,
         src_scene_feature.scale,
-        1. // xxx todo: update quality estimate
+        sqrt(est_q * src_scene_feature.wt),
     );
     
+    debug_image_features[feature_idx] = DebugFeature2D(
+        mu,
+        est_cov,
+        est_q
+    );
 }
