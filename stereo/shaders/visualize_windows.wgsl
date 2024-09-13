@@ -59,6 +59,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     );
     
     let q: f32 = eval_interp_image(rotate * corr * rotate, tile_xy);
+    // let q: f32 = eval_4x4_image(rotate * corr * rotate, tile_xy);
     let a: f32 = eval_4x4_image(smps_a, tile_xy);
     let b: f32 = eval_4x4_image(smps_b, tile_xy);
     
@@ -71,6 +72,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     
     // disable quality norm:
     // k = ker_norm;
+    
+    // if (q < 0.) { return vec4f(1., 0., 0., 1.); }
     
     return vec4f(0.66 * a, 0.66 * b, ker_norm * q, 1.);
     // return vec4f(0.66 * a, ker_norm * q, k * q, 1.);

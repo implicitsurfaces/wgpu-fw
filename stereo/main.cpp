@@ -25,18 +25,6 @@ static CaptureRef _get_capture(int index) {
     return cap;
 }
 
-// calibrated with `camcal.py`:
-CameraState _logitech_720p_cam = {
-    .lens = {
-        .aspect      = 1280 / 720.,
-        .fov_radians = 0.9985, // ~57 degrees
-        .k_c         = vec2(0.5),
-        // these values seem to change a lot between calibration runs?
-        .k_1_3       = vec3(0.157115003, -0.593241488, 1.01098102),
-        .p_12        = vec2(-0.00054739257, 0.00372932358),
-    }
-};
-
 static std::optional<size_t> _find_cmd_option(int argc, char** argv, std::string_view option) {
     auto it = std::find(argv, argv + argc, option);
     if (it == argv + argc) return std::nullopt;
@@ -92,6 +80,18 @@ static int64_t _time_ns() {
 bool should_run = false;
 ViewMode view_mode = ViewMode::Splat;
 
+// calibrated with `camcal.py`:
+CameraState _logitech_720p_cam = {
+    .lens = {
+        .aspect      = 1280 / 720.,
+        .fov_radians = 0.9985, // ~57 degrees
+        .k_c         = vec2(0.5),
+        // these values seem to change a lot between calibration runs?
+        .k_1_3       = vec3(0.157115003, -0.593241488, 1.01098102),
+        .p_12        = vec2(-0.00054739257, 0.00372932358),
+    }
+};
+
 int main(int argc, char** argv) {
     rng_t rng {13242752664001236155ULL ^ _time_ns()};
     StepMode step_mode = StepMode::Fuse;
@@ -125,21 +125,21 @@ int main(int argc, char** argv) {
     CameraState cam_0 = _logitech_720p_cam;
     CameraState cam_1 = _logitech_720p_cam;
     Visualizer* viewer = nullptr;
+        
+    if (cam_perturb > 0.) {
+        // perturb the orientation of the second camera
+        auto gauss_dist = std::normal_distribution<float>(0., 1.);
+        vec3 axis {gauss_dist(rng), gauss_dist(rng), gauss_dist(rng)};
+        float angle = cam_perturb * M_PI / 180.;
+        quat dq = quat::rotation_from_axis_angle(axis.unit(), gauss_dist(rng) * angle);
+        cam_1.q = dq * cam_1.q;
+    }
     
     if (one_source) {
-        auto gauss_dist = std::normal_distribution<float>(0., 1.);
         // displace and shift camera 1's view to align with a plane in camera 0's view
         cam_1.position = vec3(0.8, 0., 0.);
         cam_1.lens.k_c = vec2(0.51, 0.5);
         CaptureRef cap = _get_capture(0);
-        
-        if (cam_perturb > 0.) {
-            // perturb the orientation ever so slightly
-            vec3 axis {gauss_dist(rng), gauss_dist(rng), gauss_dist(rng)};
-            float angle = cam_perturb * M_PI / 180.;
-            quat dq = quat::rotation_from_axis_angle(axis.unit(), gauss_dist(rng) * angle);
-            cam_1.q = dq * cam_1.q;
-        }
         
         viewer = new Visualizer{{FrameSource{cap, cam_0}}, x_tiles, y_tiles, render_depth};
         // duplicate the capture source and add it as a new one.
@@ -147,9 +147,11 @@ int main(int argc, char** argv) {
         CaptureFrame cf   = viewer->solver->frame_source(0, FrameSelection::Current);
         cf.camera_state() = cam_1;
         viewer->solver->add_source(cf);
+        viewer->_init_lines(); // hack: re-init the frustums
     } else {
         cam_0.position = vec3(-2., 0., 0.);
         cam_1.position = vec3( 2., 0., 0.);
+        // cam_1.lens.k_c = vec2(0.54, 0.5);
         FrameSource fs[] = {
             {_get_capture(0), cam_0},
             {_get_capture(1), cam_1},
