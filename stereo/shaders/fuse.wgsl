@@ -99,7 +99,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         let dx: vec2f = tex2kern_b * src_image_feature.b.st - tex2kern_a * src_image_feature.a.st;
         updated = unproject_kalman_view_difference(
             Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
-            Estimate2D(mu - dx, est_cov), // xxx ???
+            Estimate2D(dx + mu, est_cov),
             tex2kern_a,
             tex2kern_b,
             uniforms.cam_a,

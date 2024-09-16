@@ -104,7 +104,7 @@ fn inv_dft4x4(X: cmat4) -> cmat4 {
 fn cross_correlation(img_0: cmat4, img_1: cmat4) -> cmat4 {
     let dft_0: cmat4 = dft4x4(img_0);
     let dft_1: cmat4 = dft4x4(img_1);
-    let xcor:  cmat4 = hadamard_cc(dft_0, conj(dft_1));
+    let xcor:  cmat4 = hadamard_cc(conj(dft_0), dft_1);
     return inv_dft4x4(xcor);
 }
 

@@ -79,6 +79,7 @@ static int64_t _time_ns() {
 
 bool should_run = false;
 ViewMode view_mode = ViewMode::Splat;
+bool should_reinit = false;
 
 // calibrated with `camcal.py`:
 CameraState _logitech_720p_cam = {
@@ -160,19 +161,25 @@ int main(int argc, char** argv) {
     }
     
     bool ok = true;
-    std::cout << std::endl << std::endl << "====== begin ======" << std::endl;
+    // this time division is useful for separating initialization errors from
+    // frame processing errors.
+    std::cout << std::endl << "====== begin ======" << std::endl;
     
     // make the initial state live now, because we won't swap buffers again.
     viewer->solver->begin_new_frame();
     
     auto key_resp = [](GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (key == GLFW_KEY_SPACE and action == GLFW_PRESS) {
-            should_run = true;
+            // toggle run state
+            should_run = not should_run;
+            std::cout << (should_run ? "running" : "paused") << std::endl;
         } else if (key == GLFW_KEY_ENTER and action == GLFW_PRESS) {
             if (view_mode == ViewMode::Splat) view_mode = ViewMode::Kernels;
             else                              view_mode = ViewMode::Splat;
         } else if ((key == GLFW_KEY_Q or key == GLFW_KEY_ESCAPE) and action == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+        } else if (key == GLFW_KEY_R and action == GLFW_PRESS) {
+            should_reinit = true;
         }
     };
     
@@ -184,7 +191,13 @@ int main(int argc, char** argv) {
         if (one_source) viewer->solver->capture(0);
         else            viewer->solver->capture_all();
         
-        if (should_run and swap_buffers) viewer->solver->begin_new_frame();
+        if (should_reinit) {
+            viewer->init_scene_features();
+            viewer->solver->begin_new_frame();
+            should_reinit = false;
+        } else if (should_run and swap_buffers) {
+            viewer->solver->begin_new_frame();
+        }
         
         viewer->do_frame(view_mode, should_run ? step_mode : StepMode::Match);
         viewer->solver->device().poll(false); // xxx what does this do...?
