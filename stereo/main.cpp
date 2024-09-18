@@ -200,6 +200,7 @@ int main(int argc, char** argv) {
         }
         
         viewer->do_frame(view_mode, should_run ? step_mode : StepMode::Match);
+        
         viewer->solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate
         if (viewer->solver->has_error()) {
