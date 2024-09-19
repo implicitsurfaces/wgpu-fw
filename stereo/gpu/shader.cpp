@@ -65,4 +65,30 @@ wgpu::ShaderModule shader_from_str(
     return shader_module;
 }
 
+wgpu::ComputePipeline create_pipeline(
+        wgpu::Device          device,
+        wgpu::ShaderModule    shader,
+        std::initializer_list<wgpu::BindGroupLayout> layouts,
+        const char*           label,
+        std::initializer_list<wgpu::ConstantEntry> constants)
+{
+    wgpu::PipelineLayoutDescriptor pld;
+    pld.bindGroupLayoutCount = layouts.size();
+    pld.bindGroupLayouts     = (WGPUBindGroupLayout*) layouts.begin();
+    wgpu::PipelineLayout pl  = device.createPipelineLayout(pld);
+    
+    wgpu::ComputePipelineDescriptor cpd;
+    cpd.compute.entryPoint    = "main";
+    cpd.compute.module        = shader;
+    cpd.compute.constantCount = 0;
+    cpd.layout                = pl;
+    cpd.label                 = label;
+    
+    if (constants.size() > 0) {
+        cpd.compute.constantCount = constants.size();
+        cpd.compute.constants     = constants.begin();
+    }
+    return device.createComputePipeline(cpd);
+}
+
 }  // namespace stereo

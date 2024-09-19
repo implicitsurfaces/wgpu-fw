@@ -10,7 +10,7 @@
 
 @group(5) @binding(0) var<storage, read_write> dst_child_features_t1: array<SceneFeature>;
 
-const Process_Noise_Scale: f32 = 1./30.;
+const Process_Noise_Scale: f32 = 1. / 30.;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
