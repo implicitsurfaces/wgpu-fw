@@ -69,5 +69,5 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4f {
     let v:  f32 = textureSample(gauss_tex, gauss_sampler, in.st).r;
-    return vec4f(vec3f(in.world_p), v * 0.1);
+    return vec4f(vec3f(in.world_p), v * 0.25);
 }

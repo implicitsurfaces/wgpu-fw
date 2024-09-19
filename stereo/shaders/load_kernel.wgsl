@@ -32,7 +32,8 @@ fn main(
     for (var i: u32 = 0; i < 4; i++) {
         var y: u32 = i;
         let feature: FeaturePair = features[feature_idx];
-        let st:       vec2f = vec2f(vec2u(x, y)) / vec2f(2.) - vec2f(1.); // [-1, 1]
+        let xy:       vec2f = vec2f(vec2u(x, y)) / vec2f(3.); // [ 0, 1]
+        let st:       vec2f = 2. * xy - vec2f(1.);            // [-1, 1]
         let coords_a: vec2f = feature.a.st + feature.a.basis * st;
         let coords_b: vec2f = feature.b.st + feature.b.basis * st;
         

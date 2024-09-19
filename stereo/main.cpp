@@ -80,6 +80,7 @@ static int64_t _time_ns() {
 bool should_run = false;
 ViewMode view_mode = ViewMode::Splat;
 bool should_reinit = false;
+int  depth_change  = 0;
 
 // calibrated with `camcal.py`:
 CameraState _logitech_720p_cam = {
@@ -112,6 +113,7 @@ int main(int argc, char** argv) {
         std::cout << "  --y-tiles <n>      : set the number of root-level y tiles (default 9)" << std::endl;
         std::cout << "  --perturb-cam <f>  : perturb the camera orientation by a "
             "random amount near `f` degrees" << std::endl;
+        std::cout << "  --init-depth <f>   : set the initial depth of the root features (default 25)" << std::endl;
         return 0;
     }
     if (_find_cmd_option(argc, argv, "--kernels"))    view_mode    = ViewMode::Kernels;
@@ -122,6 +124,7 @@ int main(int argc, char** argv) {
     auto x_tiles      = _get_option_u32(argc, argv, "--x-tiles").value_or(16);
     auto y_tiles      = _get_option_u32(argc, argv, "--y-tiles").value_or(9);
     auto cam_perturb  = _get_option_f32(argc, argv, "--perturb-cam").value_or(0.);
+    auto init_depth   = _get_option_f32(argc, argv, "--init-depth").value_or(25.);
     
     CameraState cam_0 = _logitech_720p_cam;
     CameraState cam_1 = _logitech_720p_cam;
@@ -142,7 +145,7 @@ int main(int argc, char** argv) {
         cam_1.lens.k_c = vec2(0.51, 0.5);
         CaptureRef cap = _get_capture(0);
         
-        viewer = new Visualizer{{FrameSource{cap, cam_0}}, x_tiles, y_tiles, render_depth};
+        viewer = new Visualizer{{FrameSource{cap, cam_0}}, x_tiles, y_tiles, init_depth, render_depth};
         // duplicate the capture source and add it as a new one.
         // share the filtered textures and captured frame.
         CaptureFrame cf   = viewer->solver->frame_source(0, FrameSelection::Current);
@@ -157,7 +160,7 @@ int main(int argc, char** argv) {
             {_get_capture(0), cam_0},
             {_get_capture(1), cam_1},
         };
-        viewer = new Visualizer{{fs[0], fs[1]}, x_tiles, y_tiles, render_depth};
+        viewer = new Visualizer{{fs[0], fs[1]}, x_tiles, y_tiles, init_depth, render_depth};
     }
     
     bool ok = true;
@@ -180,6 +183,10 @@ int main(int argc, char** argv) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         } else if (key == GLFW_KEY_R and action == GLFW_PRESS) {
             should_reinit = true;
+        } else if (key == GLFW_KEY_UP and action == GLFW_PRESS) {
+            depth_change += -1;
+        } else if (key == GLFW_KEY_DOWN and action == GLFW_PRESS) {
+            depth_change +=  1;
         }
     };
     
@@ -197,6 +204,11 @@ int main(int argc, char** argv) {
             should_reinit = false;
         } else if (should_run and swap_buffers) {
             viewer->solver->begin_new_frame();
+        }
+        
+        if (depth_change != 0) {
+            viewer->set_render_depth(viewer->get_render_depth() + depth_change);
+            depth_change = 0;
         }
         
         viewer->do_frame(view_mode, should_run ? step_mode : StepMode::Match);

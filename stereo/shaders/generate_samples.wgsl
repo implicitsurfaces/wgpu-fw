@@ -179,12 +179,16 @@ fn main(
         }
     } else if uniforms.mode == SampleMode_Correlation {
         for (var i: u32 = 0u; i < uniforms.multiple * 2; i++) {
-            let feature_sample_id: u32 = invoc_idx * uniforms.multiple + i;
+            let feature_sample_id: u32 = invoc_idx * uniforms.multiple * 2 + i;
             let sample_base:       u32 = population_base + invoc_idx * samples_per_invocation + i;
             let xcor_sample_st:  vec2f = sample_interp_image(img, uniform_2d_samples[feature_sample_id]).st;
             let xcor_sample:     vec2f = corr_to_displacement(xcor_sample_st);
             let q:                 f32 = cosine_norm * eval_interp_image(img.image, xcor_sample_st);
             dst_samples[sample_base]   = WeightedSample(xcor_sample, 1., q);
+            
+            // passthrough:
+            // let b = uniform_2d_samples[feature_sample_id];
+            // dst_samples[sample_base]   = WeightedSample(b * 2. - 1., 1., q);
         }
     }
 }
