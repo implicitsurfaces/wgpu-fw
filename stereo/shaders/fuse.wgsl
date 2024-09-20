@@ -111,6 +111,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         
     }
     
+    let information = 1. / determinant(est_cov);
+    
     // todo: how to update the quality estimate?
     //   - geometric mean of old and new?
     //   - weighted geometric mean, based on quantified overlap?
@@ -132,6 +134,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     debug_image_features[feature_idx] = DebugFeature2D(
         mu,
         est_cov,
-        est_q
+        information,
     );
 }

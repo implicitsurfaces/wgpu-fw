@@ -59,15 +59,15 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
         vec4f(pt, 0.5, 1.),
         card_pts[vert_idx] * 0.5 + vec2f(0.5),
         feature.wt,
-        // feature.x,
-        vec3f(p, 0.5),
-        
+        feature.x,
     );
 }
 
 
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4f {
-    let v:  f32 = textureSample(gauss_tex, gauss_sampler, in.st).r;
-    return vec4f(vec3f(in.world_p), v * 0.25);
+    let v: f32 = textureSample(gauss_tex, gauss_sampler, in.st).r;
+    let k: f32 = 0.5;
+    let c: vec3f = mix(vec3f(1., 1., 0.), vec3f(0., 1., 1.), 4. * sqrt(in.wt));
+    return vec4f(c, v * k);
 }

@@ -89,8 +89,8 @@ CameraState _logitech_720p_cam = {
         .fov_radians = 0.9985, // ~57 degrees
         .k_c         = vec2(0.5),
         // these values seem to change a lot between calibration runs?
-        .k_1_3       = vec3(0.157115003, -0.593241488, 1.01098102),
-        .p_12        = vec2(-0.00054739257, 0.00372932358),
+        .k_1_3       = vec3(0.157115003f, -0.593241488f, 1.01098102f),
+        .p_12        = vec2(-0.00054739257f, 0.00372932358f),
     }
 };
 
@@ -192,8 +192,10 @@ int main(int argc, char** argv) {
     
     glfwSetKeyCallback(viewer->window.window, key_resp);
     
+    bool running = should_run;
     while (not glfwWindowShouldClose(viewer->window.window)) {
         glfwPollEvents();
+        bool first_step = false;
         
         if (one_source) viewer->solver->capture(0);
         else            viewer->solver->capture_all();
@@ -202,7 +204,13 @@ int main(int argc, char** argv) {
             viewer->init_scene_features();
             viewer->solver->begin_new_frame();
             should_reinit = false;
+        } else if (should_run and not running) {
+            // initial frame. do not swap buffers, they are already primed.
+            // also, do not time-solve, because we don't have a previous frame.
+            running    = true;
+            first_step = true;
         } else if (should_run and swap_buffers) {
+            // intermediate frame
             viewer->solver->begin_new_frame();
         }
         
@@ -211,7 +219,8 @@ int main(int argc, char** argv) {
             depth_change = 0;
         }
         
-        viewer->do_frame(view_mode, should_run ? step_mode : StepMode::Match);
+        bool do_time_solve = not first_step;
+        viewer->do_frame(view_mode, should_run ? step_mode : StepMode::Match, do_time_solve);
         
         viewer->solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate

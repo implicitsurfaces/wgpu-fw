@@ -11,7 +11,7 @@ struct SceneFeature {
     q_cov: mat4x4f,
     x:     vec3f,
     x_cov: mat3x3f,
-    scale: f32,
+    scale: f32, // radius of the feature in world space
     wt:    f32,
 }
 
@@ -59,6 +59,9 @@ struct WeightedSample {
     f: f32,
 }
 
+// a SampleKernel is a 4x4 pixel patch from the source image.
+// the samples are taken from the [-1,1]^2 patch of the feature's local coordinate system.
+// the edge samples are at |x| = 1 exactly.
 struct SampleKernel {
     r: mat4x4f,
     g: mat4x4f,

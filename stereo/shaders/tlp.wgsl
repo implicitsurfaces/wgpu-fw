@@ -20,7 +20,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     if feature_idx >= arrayLength(&features) { return; }
     
     let src_feature: SceneFeature = features[feature_idx];
-    let k: f32 = uniforms.dt * src_feature.scale * uniforms.process_scale;
+    let b: f32 = uniforms.process_scale;
+    let k: f32 = uniforms.dt * src_feature.scale * b * b;
     let process_noise: mat3x3f = k * I_3x3;
     features[feature_idx].x_cov = src_feature.x_cov + process_noise;
 }

@@ -29,6 +29,8 @@ fn main(
     var g_b: vec4f = vec4f(0.);
     var b_b: vec4f = vec4f(0.);
     
+    // the samples are taken from [-1, 1]^2 in the feature's local coordinate system.
+    // the edge samples are at |x| = 1 exactly.
     for (var i: u32 = 0; i < 4; i++) {
         var y: u32 = i;
         let feature: FeaturePair = features[feature_idx];
