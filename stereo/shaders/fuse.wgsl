@@ -76,13 +76,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let src_image_feature: FeaturePair  = src_image_features[feature_idx];
     let src_scene_feature: SceneFeature = scene_features[scene_feature_idx];
     
+    let fudge_factor: f32 = 1.; // xxx fudge factor
+    
     var updated: Estimate3D;
     if uniforms.fuse_mode == FuseMode_TimeUpdate {
         // perform a time update
         let B: mat2x2f = src_image_feature.b.basis;
         // estimate the mean + covariance in cam-b's view (the current time),
         // in texture coordinates.
-        let x: vec2f = src_image_feature.b.st + B * mu;
+        let x: vec2f = src_image_feature.b.st + B * fudge_factor * mu;
         let J_P: Dx3x2 = J_project_dp(uniforms.cam_b, src_scene_feature.x);
         updated = update_ekf_unproject_2d_3d(
             Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
@@ -99,7 +101,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         let dx: vec2f = tex2kern_b * src_image_feature.b.st - tex2kern_a * src_image_feature.a.st;
         updated = unproject_kalman_view_difference(
             Estimate3D(src_scene_feature.x, src_scene_feature.x_cov),
-            Estimate2D(dx + mu, est_cov),
+            Estimate2D(dx + fudge_factor * mu, est_cov),
             tex2kern_a,
             tex2kern_b,
             uniforms.cam_a,

@@ -148,9 +148,7 @@ int main(int argc, char** argv) {
         viewer = new Visualizer{{FrameSource{cap, cam_0}}, x_tiles, y_tiles, init_depth, render_depth};
         // duplicate the capture source and add it as a new one.
         // share the filtered textures and captured frame.
-        CaptureFrame cf   = viewer->solver->frame_source(0, FrameSelection::Current);
-        cf.camera_state() = cam_1;
-        viewer->solver->add_source(cf);
+        viewer->solver->_debug_mirror_source(0, cam_1);
         viewer->_init_lines(); // hack: re-init the frustums
     } else {
         cam_0.position = vec3(-2., 0., 0.);
@@ -197,8 +195,12 @@ int main(int argc, char** argv) {
         glfwPollEvents();
         bool first_step = false;
         
-        if (one_source) viewer->solver->capture(0);
-        else            viewer->solver->capture_all();
+        if (one_source) {
+            viewer->solver->capture(0);
+            // viewer->solver->_debug_swap_frame(1); // bring src 2 to the front with out re-capturing
+        } else {
+            viewer->solver->capture_all();
+        }
         
         if (should_reinit) {
             viewer->init_scene_features();
