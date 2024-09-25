@@ -116,6 +116,24 @@ public:
         submit_write(data.data(), range1i(0, N - 1));
     }
     
+    void copy_to(DataBuffer<T>& other, gpu_size_t dst_offset, range1i src_range=range1i::full) {
+        range1i actual_range = src_range & range1i(0, _size - 1);
+        wgpu::Queue q = _device.getQueue();
+        wgpu::CommandEncoder encoder = _device.createCommandEncoder(wgpu::Default);
+        encoder.copyBufferToBuffer(
+            _buffer,
+            actual_range.lo * sizeof(T),
+            other._buffer,
+            dst_offset * sizeof(T),
+            actual_range.dimensions() * sizeof(T)
+        );
+        wgpu::CommandBuffer commands = encoder.finish(wgpu::Default);
+        q.submit(commands);
+        q.release();
+        commands.release();
+        encoder.release();
+    }
+    
     gpu_size_t size() const {
         return _size;
     }

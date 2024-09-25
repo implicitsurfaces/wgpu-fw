@@ -18,6 +18,20 @@ BindGroup::BindGroup(BindGroup&& other):
     other._bindgroup = nullptr;
 }
 
+BindGroup::BindGroup(
+        wgpu::Device device,
+        BindGroupLayout& layout,
+        std::initializer_list<wgpu::BindGroupEntry> entries,
+        std::string_view label)
+{
+    wgpu::BindGroupDescriptor bgd;
+    bgd.label      = label.data();
+    bgd.layout     = layout;
+    bgd.entryCount = entries.size();
+    bgd.entries    = entries.begin();
+    _bindgroup = device.createBindGroup(bgd);
+}
+
 BindGroup::~BindGroup() {
     if (_bindgroup) _bindgroup.release();
 }
@@ -59,6 +73,18 @@ BindGroupLayout::BindGroupLayout(BindGroupLayout&& other):
     _layout(other._layout)
 {
     other._layout = nullptr;
+}
+
+BindGroupLayout::BindGroupLayout(
+    wgpu::Device device,
+    std::initializer_list<wgpu::BindGroupLayoutEntry> entries,
+    std::string_view label)
+{
+    wgpu::BindGroupLayoutDescriptor bgld;
+    bgld.label      = label.data();
+    bgld.entryCount = entries.size();
+    bgld.entries    = entries.begin();
+    _layout = device.createBindGroupLayout(bgld);
 }
 
 BindGroupLayout::~BindGroupLayout() {

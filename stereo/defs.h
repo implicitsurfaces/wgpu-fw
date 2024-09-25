@@ -9,6 +9,7 @@
 #include <functional>
 #include <ranges>
 #include <optional>
+#include <initializer_list>
 
 #include <ankerl/unordered_dense.h>
 

@@ -91,4 +91,28 @@ wgpu::ComputePipeline create_pipeline(
     return device.createComputePipeline(cpd);
 }
 
+wgpu::BindGroupLayoutEntry sampler_layout(gpu_size_t binding) {
+    wgpu::BindGroupLayoutEntry entry = wgpu::Default;
+    entry.binding      = binding;
+    entry.visibility   = wgpu::ShaderStage::Compute;
+    entry.sampler.type = wgpu::SamplerBindingType::Filtering;
+    return entry;
+}
+
+wgpu::BindGroupLayoutEntry texture_layout(gpu_size_t binding) {
+    wgpu::BindGroupLayoutEntry entry = wgpu::Default;
+    entry.binding               = binding;
+    entry.visibility            = wgpu::ShaderStage::Compute;
+    entry.texture.sampleType    = wgpu::TextureSampleType::Float;
+    entry.texture.viewDimension = wgpu::TextureViewDimension::_2D;
+    return entry;
+}
+
+wgpu::BindGroupEntry sampler_entry(gpu_size_t binding, wgpu::Sampler sampler) {
+    wgpu::BindGroupEntry entry = wgpu::Default;
+    entry.binding = binding;
+    entry.sampler = sampler;
+    return entry;
+}
+
 }  // namespace stereo

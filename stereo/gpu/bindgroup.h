@@ -3,6 +3,10 @@
 #include <stereo/defs.h>
 
 namespace stereo {
+    
+// fwd decl
+struct BindGroupLayout;
+
 
 struct BindGroup {
 private:
@@ -14,6 +18,12 @@ public:
     BindGroup(wgpu::BindGroup&& bindgroup);
     BindGroup(const BindGroup& other);
     BindGroup(BindGroup&& other);
+    BindGroup(
+        wgpu::Device device,
+        BindGroupLayout& layout,
+        std::initializer_list<wgpu::BindGroupEntry> entries,
+        std::string_view label
+    );
     
     ~BindGroup();
     
@@ -39,6 +49,10 @@ public:
     BindGroupLayout(wgpu::BindGroupLayout&& bindgroup);
     BindGroupLayout(const BindGroupLayout& other);
     BindGroupLayout(BindGroupLayout&& other);
+    BindGroupLayout(
+        wgpu::Device device,
+        std::initializer_list<wgpu::BindGroupLayoutEntry> entries,
+        std::string_view label);
     
     ~BindGroupLayout();
     

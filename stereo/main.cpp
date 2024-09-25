@@ -77,10 +77,12 @@ static int64_t _time_ns() {
     ).count();
 }
 
-bool should_run = false;
-ViewMode view_mode = ViewMode::Splat;
-bool should_reinit = false;
-int  depth_change  = 0;
+// hacky gvars. too lazy to make the callbacks work better
+bool     should_run        = false;
+ViewMode view_mode         = ViewMode::Splat;
+bool     should_reinit     = false;
+int      depth_change      = 0;
+bool     should_undisplace = false;
 
 // calibrated with `camcal.py`:
 CameraState _logitech_720p_cam = {
@@ -153,7 +155,7 @@ int main(int argc, char** argv) {
     } else {
         cam_0.position = vec3(-2., 0., 0.);
         cam_1.position = vec3( 2., 0., 0.);
-        // cam_1.lens.k_c = vec2(0.54, 0.5);
+        // cam_1.lens.k_c = vec2(0.51, 0.5);
         FrameSource fs[] = {
             {_get_capture(0), cam_0},
             {_get_capture(1), cam_1},
@@ -185,6 +187,8 @@ int main(int argc, char** argv) {
             depth_change += -1;
         } else if (key == GLFW_KEY_DOWN and action == GLFW_PRESS) {
             depth_change +=  1;
+        } else if (key == GLFW_KEY_D and action == GLFW_PRESS) {
+            should_undisplace = not should_undisplace;
         }
     };
     
@@ -222,7 +226,12 @@ int main(int argc, char** argv) {
         }
         
         bool do_time_solve = not first_step;
-        viewer->do_frame(view_mode, should_run ? step_mode : StepMode::Match, do_time_solve);
+        viewer->do_frame(
+            view_mode,
+            should_run ? step_mode : StepMode::Match,
+            do_time_solve,
+            should_undisplace
+        );
         
         viewer->solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate

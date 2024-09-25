@@ -7,6 +7,7 @@ struct VertexOut {
     @location(0)       st: vec2f,
     @location(1)       wt: f32,
     @location(2)  world_p: vec3f,
+    @location(3)   scr_sz: f32,
 }
 
 struct SplatUniforms {
@@ -31,7 +32,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
     let vert_idx:    u32 = reindex[in_vertex_index % Verts_Per_Feature];
     if feature_idx >= arrayLength(&features) {
         return VertexOut(
-            vec4f(0.), vec2f(0.), 0., vec3f(0.),
+            vec4f(0.), vec2f(0.), 0., vec3f(0.), 1.,
         );
     }
     
@@ -60,6 +61,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
         card_pts[vert_idx] * 0.5 + vec2f(0.5),
         feature.wt,
         feature.x,
+        determinant(J),
     );
 }
 
@@ -67,7 +69,8 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOut {
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4f {
     let v: f32 = textureSample(gauss_tex, gauss_sampler, in.st).r;
-    let k: f32 = 0.5;
+    let area_norm: f32 = 1. / (256. * sqrt(in.scr_sz));
+    let k: f32 = 0.5 * area_norm;
     let c: vec3f = mix(vec3f(1., 1., 0.), vec3f(0., 1., 1.), 4. * sqrt(in.wt));
     return vec4f(c, v * k);
 }
