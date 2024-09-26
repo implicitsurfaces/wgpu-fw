@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
         
         if (one_source) {
             viewer->solver->capture(0);
-            // viewer->solver->_debug_swap_frame(1); // bring src 2 to the front with out re-capturing
+            viewer->solver->_debug_swap_frame(1); // bring src 2 to the front with out re-capturing
         } else {
             viewer->solver->capture_all();
         }
