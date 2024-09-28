@@ -25,6 +25,12 @@ struct QuantifiedEstimate2D {
     quality:  f32,
 }
 
+struct WeightedEstimate3D {
+    x:     vec3f,
+    sigma: mat3x3f,
+    wt:    f32,
+}
+
 fn regularize_posdef_2x2(m: mat2x2f) -> mat2x2f {
     return 0.5 * (m + transpose(m));
 }
@@ -167,6 +173,34 @@ fn update_unproject_2d_3d(
 {
     let p_2d: vec2f = H * prior.x;
     return update_ekf_unproject_2d_3d(prior, p_2d, measurement, H);
+}
+
+fn aggregate_3d(
+    x_a: WeightedEstimate3D,
+    x_b: WeightedEstimate3D) -> WeightedEstimate3D
+{
+    // formula from https://stats.stackexchange.com/a/655030/434193
+    // (gpt-o1 independently agrees)
+    let mu_a:   vec3f = x_a.x;
+    let mu_b:   vec3f = x_b.x;
+    let w_a:      f32 = max(x_a.wt, 0.); // discard spurious negative weights
+    let w_b:      f32 = max(x_b.wt, 0.);
+    let C_a:  mat3x3f = x_a.sigma;
+    let C_b:  mat3x3f = x_b.sigma;
+    let w_ab:     f32 = w_a + w_b;
+    
+    if w_ab == 0. { return x_a; }
+    
+    let k:        f32 = w_a * w_b / w_ab;
+    let d:      vec3f = mu_b - mu_a;
+    let B:    mat3x3f = outer3x3(d, d);
+    let C_ab: mat3x3f = ((w_a - 1) * C_a + (w_b - 1) * C_b + k * B) * (1. / (w_ab - 1.));
+    
+    return WeightedEstimate3D(
+        (w_a * mu_a + w_b * mu_b)    / w_ab,
+        C_ab,
+        w_ab,
+    );
 }
 
 // todo / questions:

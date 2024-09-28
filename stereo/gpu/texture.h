@@ -16,7 +16,7 @@ public:
     Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range=range1i::full);
     Texture(
         wgpu::Device device,
-        vec2ui size,
+        vec2u size,
         wgpu::TextureFormat format,
         const char* label="texture"
     );

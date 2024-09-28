@@ -17,7 +17,7 @@ Texture::Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range):
 
 Texture::Texture(
         wgpu::Device device,
-        vec2ui size,
+        vec2u size,
         wgpu::TextureFormat format,
         const char* label):
     _device(device)

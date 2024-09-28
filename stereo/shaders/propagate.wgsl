@@ -40,6 +40,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
             src_child_t0.x_cov + process_noise,
             src_child_t0.scale,
             src_child_t0.wt,
+            // xxx debug
+            src_parent_t0.color,
         );
     }
 }

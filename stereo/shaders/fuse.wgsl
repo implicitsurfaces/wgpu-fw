@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let feature_idx:  u32 = global_id.x;
     let i_idx:        u32 = global_id.x + feature_range.feature_start;
     if i_idx >= arrayLength(&feature_idx_buffer) ||
-       i_idx > feature_range.feature_end
+       i_idx >= feature_range.feature_end
     {
         return;
     }
@@ -131,6 +131,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         updated.sigma,
         src_scene_feature.scale,
         sqrt(est_q * src_scene_feature.wt),
+        // xxx debug
+        src_scene_feature.color,
     );
     
     debug_image_features[feature_idx] = DebugFeature2D(

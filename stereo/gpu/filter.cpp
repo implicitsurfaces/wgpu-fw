@@ -284,7 +284,7 @@ void Filter3x3::apply(FilteredTexture& tex) {
     wgpu::ComputePassEncoder compute_pass = encoder.beginComputePass(cpd);
     compute_pass.setPipeline(_pipeline);
     
-    vec2ui src_res = {src.getWidth(), src.getHeight()};
+    vec2u src_res = {src.getWidth(), src.getHeight()};
     std::vector<wgpu::TextureView> mip_views;
     
     // one exec for each mip level

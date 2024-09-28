@@ -16,7 +16,7 @@ struct DataBuffer {
 private:
     wgpu::Device _device = nullptr;
     wgpu::Buffer _buffer = nullptr;
-    gpu_size_t   _size;
+    gpu_size_t     _size;
     
     void _release() {
         if (_buffer) _buffer.release();
@@ -29,8 +29,8 @@ public:
     
     DataBuffer(
         wgpu::Device device,
-        gpu_size_t size,
-        BufferKind kind,
+        gpu_size_t   size,
+        BufferKind   kind,
         WGPUBufferUsageFlags extra_flags=wgpu::BufferUsage::None):
             _device(device),
             _size(size)

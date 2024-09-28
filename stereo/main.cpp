@@ -71,6 +71,32 @@ static std::optional<float> _get_option_f32(int argc, char**argv, std::string_vi
     }
 }
 
+template <typename T>
+static std::optional<T> _get_choice(
+    int argc,
+    char** argv,
+    std::string_view option,
+    std::initializer_list<std::pair<std::string_view, T>> choices)
+{
+    auto i = _find_cmd_option(argc, argv, option);
+    if (i) {
+        size_t index = *i + 1;
+        if (index < argc) {
+            auto choice = std::string_view(argv[index]);
+            for (auto& [name, value] : choices) {
+                if (choice == name) return value;
+            }
+            std::cerr << "Invalid choice for option `" << option << "`" << std::endl;
+            return std::nullopt;
+        } else {
+            std::cerr << "Missing choice argument for option `" << option << "`" << std::endl;
+            return std::nullopt;
+        }
+    } else {
+        return std::nullopt;
+    }
+}
+
 static int64_t _time_ns() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()
@@ -80,9 +106,11 @@ static int64_t _time_ns() {
 // hacky gvars. too lazy to make the callbacks work better
 bool     should_run        = false;
 ViewMode view_mode         = ViewMode::Splat;
+StepMode idle_mode         = StepMode::Fuse;
 bool     should_reinit     = false;
 int      depth_change      = 0;
 bool     should_undisplace = false;
+bool     one_fr            = false;
 
 // calibrated with `camcal.py`:
 CameraState _logitech_720p_cam = {
@@ -96,9 +124,19 @@ CameraState _logitech_720p_cam = {
     }
 };
 
+CameraState _amazon_stereo_usb = {
+    .lens = {
+        .aspect      = 16. / 9.,
+        .fov_radians = 2.,
+        .k_c         = vec2( 0.486832534,    0.45909096),
+        .k_1_3       = vec3( 0.0011709166,  -0.015928833, 0.00073791838),
+        .p_12        = vec2(-0.00075877646, -0.0015043166)
+    }
+};
+
+
 int main(int argc, char** argv) {
     rng_t rng {13242752664001236155ULL ^ _time_ns()};
-    StepMode step_mode = StepMode::Fuse;
     bool one_source   = false;
     bool swap_buffers = true;
     
@@ -106,8 +144,6 @@ int main(int argc, char** argv) {
         std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
         std::cout << "Options:" << std::endl;
         std::cout << "  --kernels          : view the kernels" << std::endl;
-        std::cout << "  --match-only       : only perform the stereo matching step; "
-            "no time or hierarchical fusion" << std::endl;
         std::cout << "  --one-source       : use only one image source" << std::endl;
         std::cout << "  --no-swap          : do not swap buffers" << std::endl;
         std::cout << "  --render-depth <n> : render the specified mip level" << std::endl;
@@ -115,11 +151,11 @@ int main(int argc, char** argv) {
         std::cout << "  --y-tiles <n>      : set the number of root-level y tiles (default 9)" << std::endl;
         std::cout << "  --perturb-cam <f>  : perturb the camera orientation by a "
             "random amount near `f` degrees" << std::endl;
-        std::cout << "  --init-depth <f>   : set the initial depth of the root features (default 25)" << std::endl;
+        std::cout << "  --init-depth <f>   : set the initial distance of the root features (default 25)" << std::endl;
+        std::cout << "  --idle-mode <s>    : set the idle mode to one of {fuse, match, none}." << std::endl;
         return 0;
     }
     if (_find_cmd_option(argc, argv, "--kernels"))    view_mode    = ViewMode::Kernels;
-    if (_find_cmd_option(argc, argv, "--match-only")) step_mode    = StepMode::Match;
     if (_find_cmd_option(argc, argv, "--one-source")) one_source   = true;
     if (_find_cmd_option(argc, argv, "--no-swap"))    swap_buffers = false;
     auto render_depth = _get_option_u32(argc, argv, "--render-depth").value_or(0);
@@ -127,6 +163,11 @@ int main(int argc, char** argv) {
     auto y_tiles      = _get_option_u32(argc, argv, "--y-tiles").value_or(9);
     auto cam_perturb  = _get_option_f32(argc, argv, "--perturb-cam").value_or(0.);
     auto init_depth   = _get_option_f32(argc, argv, "--init-depth").value_or(25.);
+    idle_mode         = _get_choice<StepMode>(argc, argv, "--idle-mode", {
+        {"fuse",  StepMode::Fuse},
+        {"match", StepMode::Match},
+        {"none",  StepMode::None},
+    }).value_or(StepMode::Match);
     
     CameraState cam_0 = _logitech_720p_cam;
     CameraState cam_1 = _logitech_720p_cam;
@@ -189,6 +230,9 @@ int main(int argc, char** argv) {
             depth_change +=  1;
         } else if (key == GLFW_KEY_D and action == GLFW_PRESS) {
             should_undisplace = not should_undisplace;
+        } else if (key == GLFW_KEY_S and action == GLFW_PRESS) {
+            one_fr     = true;
+            should_run = true;
         }
     };
     
@@ -228,10 +272,15 @@ int main(int argc, char** argv) {
         bool do_time_solve = not first_step;
         viewer->do_frame(
             view_mode,
-            should_run ? step_mode : StepMode::Match,
+            should_run ? StepMode::Fuse : idle_mode,
             do_time_solve,
             should_undisplace
         );
+        
+        if (one_fr) {
+            should_run = false;
+            one_fr     = false;
+        }
         
         viewer->solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate

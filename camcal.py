@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# xxx: problem: FOV calc appears to be wrong. inverted...?
+
 # from https://learnopencv.com/camera-calibration-using-opencv/
 # see also https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
 
@@ -26,7 +28,7 @@ cv2.startWindowThread()
 cv2.namedWindow('pv', cv2.WINDOW_NORMAL)
 
 # Extracting path of individual image stored in a given directory
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 print("Press space to capture a frame, q to finish.")
 
@@ -38,6 +40,9 @@ while True:
     if not ret:
         print("Failed to grab frame")
         break
+    
+    # w = img.shape[1]
+    # img = img[:, : w]
     
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret  = False
@@ -107,6 +112,7 @@ fov_x = 2. * atan(t_x / 2.)
 fov_y = 2. * atan(t_y / 2.)
 ctr_xy = mtx[0,2], mtx[1,2]
 
+print(f"aspect (w/h): {aspect}")
 print(f"fov (avg xy): {(fov_x + fov_y) / 2.} radians")
 print(f"center (x,y): {mtx[0,2]}, {mtx[1,2]}")
 print(f"  k1, k2, k3: {dist[0]}, {dist[1]}, {dist[4]}")

@@ -13,6 +13,9 @@ struct SceneFeature {
     x_cov: mat3x3f,
     scale: f32, // radius of the feature in world space
     wt:    f32,
+    
+    // xxx debug
+    color: vec3f,
 }
 
 struct TreeNode {
