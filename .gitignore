@@ -3,6 +3,8 @@ build
 bin
 .sconsign.dblite
 .vscode
+.cache
+compile_commands.json
 html/
 resource/
 doc/gen

@@ -31,7 +31,7 @@ Ts = Builder(
 
 def subst_wasm_flags(env, wasm_flags):
     wasm_opts = (('-s', f'{k}={v}') for k,v in wasm_flags.items())
-    return list(itertools.chain(*wasm_opts)) 
+    return list(itertools.chain(*wasm_opts))
 
 wasm_cflags = {
     'NO_DISABLE_EXCEPTION_CATCHING' : 1,
@@ -66,8 +66,11 @@ env = Environment(
     TS_OPTS=['--target', 'ES2018'],
     BUILDERS={'Ts' : Ts},
     ENV={'PKG_CONFIG_PATH': pkg_config_path},
+    COMPILATIONDB_USE_ABSPATH=True,
 )
 env.AddMethod(subst_wasm_flags)
+
+env.Tool('compilation_db')
 
 if debug:
     env.Append(CXXFLAGS='-g')
@@ -121,4 +124,8 @@ Export("env")
 
 # data = SConscript('objects/SConscript', variant_dir='build/objects')
 prog = SConscript('stereo/SConscript',  variant_dir=f'build/{arch}/stereo')
-prog = SConscript('test/SConscript',    variant_dir=f'build/{arch}/test')
+test = SConscript('test/SConscript',    variant_dir=f'build/{arch}/test')
+
+comp_db = env.CompilationDatabase(target='compile_commands.json')
+
+Default([prog, comp_db])

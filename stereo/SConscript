@@ -117,7 +117,7 @@ def expand_includes(target, source, env, seen=None):
         # included files into the destination file, with the include
         # itself coming last
         expand_includes(target, inc_source, env, seen)
-    
+
     with open(dstpath, 'a') as dst_f:
         # copy the contents of the source file to the destination
         with open(srcpath, 'r') as src_f:
@@ -141,6 +141,8 @@ for f in shader_sources:
 
 # ordinary build
 
+t = None
+
 if arch == 'wasm':
     preload_flags = itertools.chain(*
         (('--preload-file', env.File(f).abspath) for f in BUNDLED_FILES)
@@ -154,7 +156,7 @@ if arch == 'wasm':
     # scons will treat it as in internal variable and try to replace it)
     index = env.Substfile('#/web/index.html', SUBST_DICT={'%MODULE_NAME%' : module})
     indexes.append(env.InstallAs(f'{SERVE_OUT}/{module}.html', index))
-        
+
     # web boilerplate
     # build ts file to js:
     wrapper = env.Ts(source='#/web/wrapper.ts', target=f'{SERVE_OUT}/wrapper.js')
@@ -164,7 +166,7 @@ if arch == 'wasm':
     serve_path = env.GetBuildPath(SERVE_OUT)
     serve = env.Command(
         'serve',
-        [prog_target, wrapper, css, indexes], 
+        [prog_target, wrapper, css, indexes],
         f'python3 -m http.server 8000 -d {serve_path}')
     env.Alias('serve', serve)
     default_targets.append(serve)
@@ -175,6 +177,8 @@ else:
         prog_target   = f'#/bin/{prog_name}'
         prog = env.Program(prog_target, source=[p, *obj_sources])
         programs.append(prog)
+        if prog_name == 'main':
+            t = prog # uhhhhhhhh
 
 # install shader files
 # shader_out_dir = os.path.join(data_out, 'shaders')
@@ -184,4 +188,4 @@ else:
 
 Default([*programs, *default_targets])
 
-Return('main')
+Return('t')

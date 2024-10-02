@@ -194,10 +194,12 @@ fn aggregate_3d(
     let k:        f32 = w_a * w_b / w_ab;
     let d:      vec3f = mu_b - mu_a;
     let B:    mat3x3f = outer3x3(d, d);
-    let C_ab: mat3x3f = ((w_a - 1) * C_a + (w_b - 1) * C_b + k * B) * (1. / (w_ab - 1.));
+    // let C_ab: mat3x3f = ((w_a - 1) * C_a + (w_b - 1) * C_b + k * B) * (1. / (w_ab - 1.));
+    // the above makes fucky covariances. this looks better:
+    let C_ab: mat3x3f = (w_a * C_a + w_b * C_b + k * B) * (1. / w_ab);
     
     return WeightedEstimate3D(
-        (w_a * mu_a + w_b * mu_b)    / w_ab,
+        (w_a * mu_a + w_b * mu_b) / w_ab,
         C_ab,
         w_ab,
     );

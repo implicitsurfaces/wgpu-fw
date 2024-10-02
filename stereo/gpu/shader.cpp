@@ -1,4 +1,5 @@
 #include <stereo/gpu/shader.h>
+#include <stereo/gpu/texture.h>
 
 namespace stereo {
 
@@ -18,7 +19,7 @@ static std::string read_file(const char* fpath) {
     fseek(f, 0, SEEK_END);
     auto n_bytes = ftell(f);
     rewind(f);
-    
+
     std::string s;
     s.resize(n_bytes + 1);
     size_t n_read = fread(s.data(), 1, n_bytes, f);
@@ -49,19 +50,19 @@ wgpu::ShaderModule shader_from_str(
 	shader_code.chain.next = nullptr;
 	shader_code.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
 	shader_code.code = source;
-    
+
 	wgpu::ShaderModuleDescriptor module_desc {};
 	module_desc.nextInChain = &shader_code.chain;
 	module_desc.hintCount = 0;
 	module_desc.hints = nullptr;
     module_desc.label = label;
 	wgpu::ShaderModule shader_module = device.createShaderModule(module_desc);
-    
+
     if (not shader_module) {
         std::cerr << "Error creating shader module" << std::endl;
         std::abort();
     }
-    
+
     return shader_module;
 }
 
@@ -76,14 +77,14 @@ wgpu::ComputePipeline create_pipeline(
     pld.bindGroupLayoutCount = layouts.size();
     pld.bindGroupLayouts     = (WGPUBindGroupLayout*) layouts.begin();
     wgpu::PipelineLayout pl  = device.createPipelineLayout(pld);
-    
+
     wgpu::ComputePipelineDescriptor cpd;
     cpd.compute.entryPoint    = "main";
     cpd.compute.module        = shader;
     cpd.compute.constantCount = 0;
     cpd.layout                = pl;
     cpd.label                 = label;
-    
+
     if (constants.size() > 0) {
         cpd.compute.constantCount = constants.size();
         cpd.compute.constants     = constants.begin();
@@ -91,18 +92,24 @@ wgpu::ComputePipeline create_pipeline(
     return device.createComputePipeline(cpd);
 }
 
-wgpu::BindGroupLayoutEntry sampler_layout(gpu_size_t binding) {
+wgpu::BindGroupLayoutEntry sampler_layout(
+        gpu_size_t binding,
+        wgpu::ShaderStage extra_stages)
+{
     wgpu::BindGroupLayoutEntry entry = wgpu::Default;
     entry.binding      = binding;
-    entry.visibility   = wgpu::ShaderStage::Compute;
+    entry.visibility   = wgpu::ShaderStage::Compute | extra_stages;
     entry.sampler.type = wgpu::SamplerBindingType::Filtering;
     return entry;
 }
 
-wgpu::BindGroupLayoutEntry texture_layout(gpu_size_t binding) {
+wgpu::BindGroupLayoutEntry texture_layout(
+        gpu_size_t binding,
+        wgpu::ShaderStage extra_stages)
+{
     wgpu::BindGroupLayoutEntry entry = wgpu::Default;
     entry.binding               = binding;
-    entry.visibility            = wgpu::ShaderStage::Compute;
+    entry.visibility            = wgpu::ShaderStage::Compute | extra_stages;
     entry.texture.sampleType    = wgpu::TextureSampleType::Float;
     entry.texture.viewDimension = wgpu::TextureViewDimension::_2D;
     return entry;
@@ -112,6 +119,20 @@ wgpu::BindGroupEntry sampler_entry(gpu_size_t binding, wgpu::Sampler sampler) {
     wgpu::BindGroupEntry entry = wgpu::Default;
     entry.binding = binding;
     entry.sampler = sampler;
+    return entry;
+}
+
+wgpu::BindGroupEntry texture_entry(gpu_size_t binding, Texture& texture) {
+    wgpu::BindGroupEntry entry = wgpu::Default;
+    entry.binding     = binding;
+    entry.textureView = texture.view();
+    return entry;
+}
+
+wgpu::BindGroupEntry texture_entry(gpu_size_t binding, wgpu::TextureView texview) {
+    wgpu::BindGroupEntry entry = wgpu::Default;
+    entry.binding     = binding;
+    entry.textureView = texview;
     return entry;
 }
 

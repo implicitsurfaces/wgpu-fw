@@ -1,9 +1,12 @@
 #pragma once
 
+#include "webgpu/webgpu.hpp"
 #include <stereo/gpu/bindgroup.h>
 #include <stereo/gpu/buffer.h>
 
 namespace stereo {
+
+struct Texture;
 
 wgpu::ShaderModule shader_from_file(wgpu::Device device, const char* fpath);
 
@@ -48,9 +51,15 @@ wgpu::BindGroupLayoutEntry uniform_layout(gpu_size_t binding, bool has_dynamic_o
     return entry;
 }
 
-wgpu::BindGroupLayoutEntry sampler_layout(gpu_size_t binding);
+wgpu::BindGroupLayoutEntry sampler_layout(
+    gpu_size_t binding,
+    wgpu::ShaderStage extra_stages=wgpu::ShaderStage::None
+);
 
-wgpu::BindGroupLayoutEntry texture_layout(gpu_size_t binding);
+wgpu::BindGroupLayoutEntry texture_layout(
+    gpu_size_t binding,
+    wgpu::ShaderStage extra_stages=wgpu::ShaderStage::None
+);
 
 template <typename T>
 wgpu::BindGroupEntry buffer_entry(
@@ -70,6 +79,16 @@ wgpu::BindGroupEntry buffer_entry(
 wgpu::BindGroupEntry sampler_entry(
     gpu_size_t binding,
     wgpu::Sampler sampler
+);
+
+wgpu::BindGroupEntry texture_entry(
+    gpu_size_t binding,
+    Texture& texture
+);
+
+wgpu::BindGroupEntry texture_entry(
+    gpu_size_t binding,
+    wgpu::TextureView texview
 );
 
 } // namespace stereo

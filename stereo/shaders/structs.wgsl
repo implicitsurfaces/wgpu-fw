@@ -20,7 +20,9 @@ struct SceneFeature {
 
 struct TreeNode {
     parent:      u32,
+    // global index of first child, if extant
     child_begin: u32,
+    // off-end global child index
     child_end:   u32,
 }
 

@@ -9,6 +9,18 @@
 @group(4) @binding(0) var<storage,read>       parent_idx_buffer:   array<u32>;
 
 
+fn is_nan_f(v: f32) -> bool {
+    return v != v;
+}
+
+fn is_nan_v3(v: vec3f) -> bool {
+    return is_nan_f(v.x) || is_nan_f(v.y) || is_nan_f(v.z);
+}
+
+fn is_nan_m3(m: mat3x3f) -> bool {
+    return is_nan_v3(m[0]) || is_nan_v3(m[1]) || is_nan_v3(m[2]);
+}
+
 @compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let i_idx: u32 = global_id.x + feature_range.feature_start;
@@ -30,11 +42,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     var e: WeightedEstimate3D = WeightedEstimate3D(
         first_child.x,
         first_child.x_cov,
-        first_child.wt
+        1. // xxx first_child.wt,
     );
+    var c: vec3f = first_child.color; // xxx first_child.wt * first_child.color;
     for (var i: u32 = parent_node.child_begin + 1; i < parent_node.child_end; i++) {
         let child: SceneFeature = src_child_features[i];
-        e = aggregate_3d(e, WeightedEstimate3D(child.x, child.x_cov, child.wt));
+        e = aggregate_3d(e, WeightedEstimate3D(child.x, child.x_cov, 1.)); // xxx child.wt));
+        c += child.color; // child.wt * child.color;
     }
     
     // compute the aggregated quality
@@ -51,8 +65,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         1. / (n + 1.)
     );
     
+    if is_nan_m3(e.sigma) || is_nan_f(e.wt) || is_nan_v3(e.x) {
+        // there's a nan. mark this guy as fucky and early exit
+        dst_parent_features[parent_idx].color = vec3(1.);
+        return;
+    }
+    
     // write out the result
     dst_parent_features[parent_idx].x     = e.x;
     dst_parent_features[parent_idx].x_cov = e.sigma;
-    dst_parent_features[parent_idx].wt    = new_wt;
+    dst_parent_features[parent_idx].wt    = e.wt; // new_wt;
+    dst_parent_features[parent_idx].color = c / e.wt;
 }

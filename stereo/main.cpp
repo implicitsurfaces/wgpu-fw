@@ -1,3 +1,4 @@
+#include "stereo/app/frame_source.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -22,6 +23,7 @@ static CaptureRef _get_capture(int index) {
         cap->open(index);
         std::this_thread::sleep_for(100ms);
     }
+    // cap->grab();
     return cap;
 }
 
@@ -103,8 +105,15 @@ static int64_t _time_ns() {
     ).count();
 }
 
+enum struct SourceMode {
+    Single,
+    Dual,
+    Split,
+};
+
 // hacky gvars. too lazy to make the callbacks work better
 bool     should_run        = false;
+SourceMode source_mode     = SourceMode::Single;
 ViewMode view_mode         = ViewMode::Splat;
 StepMode idle_mode         = StepMode::Fuse;
 bool     should_reinit     = false;
@@ -137,26 +146,29 @@ CameraState _amazon_stereo_usb = {
 
 int main(int argc, char** argv) {
     rng_t rng {13242752664001236155ULL ^ _time_ns()};
-    bool one_source   = false;
     bool swap_buffers = true;
-    
+
     if (_find_cmd_option(argc, argv, "-h")) {
         std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
         std::cout << "Options:" << std::endl;
         std::cout << "  --kernels          : view the kernels" << std::endl;
-        std::cout << "  --one-source       : use only one image source" << std::endl;
+        std::cout << "  --source           : specify stream source {single, dual, split} "
+            "(default single)" << std::endl;
         std::cout << "  --no-swap          : do not swap buffers" << std::endl;
         std::cout << "  --render-depth <n> : render the specified mip level" << std::endl;
-        std::cout << "  --x-tiles <n>      : set the number of root-level x tiles (default 16)" << std::endl;
-        std::cout << "  --y-tiles <n>      : set the number of root-level y tiles (default 9)" << std::endl;
+        std::cout << "  --x-tiles <n>      : set the number of root-level x tiles (default 16)"
+            << std::endl;
+        std::cout << "  --y-tiles <n>      : set the number of root-level y tiles (default 9)"
+            << std::endl;
         std::cout << "  --perturb-cam <f>  : perturb the camera orientation by a "
             "random amount near `f` degrees" << std::endl;
-        std::cout << "  --init-depth <f>   : set the initial distance of the root features (default 25)" << std::endl;
-        std::cout << "  --idle-mode <s>    : set the idle mode to one of {fuse, match, none}." << std::endl;
+        std::cout << "  --init-depth <f>   : set the initial distance of the root features "
+            "(default 25)" << std::endl;
+        std::cout << "  --idle-mode <s>    : set the idle mode to one of {fuse, match, none}."
+            << std::endl;
         return 0;
     }
     if (_find_cmd_option(argc, argv, "--kernels"))    view_mode    = ViewMode::Kernels;
-    if (_find_cmd_option(argc, argv, "--one-source")) one_source   = true;
     if (_find_cmd_option(argc, argv, "--no-swap"))    swap_buffers = false;
     auto render_depth = _get_option_u32(argc, argv, "--render-depth").value_or(0);
     auto x_tiles      = _get_option_u32(argc, argv, "--x-tiles").value_or(16);
@@ -168,11 +180,15 @@ int main(int argc, char** argv) {
         {"match", StepMode::Match},
         {"none",  StepMode::None},
     }).value_or(StepMode::Match);
-    
+    source_mode = _get_choice<SourceMode>(argc, argv, "--source", {
+        {"single", SourceMode::Single},
+        {"dual",   SourceMode::Dual},
+        {"split",  SourceMode::Split},
+    }).value_or(SourceMode::Single);
+
     CameraState cam_0 = _logitech_720p_cam;
-    CameraState cam_1 = _logitech_720p_cam;
-    Visualizer* viewer = nullptr;
-        
+    CameraState cam_1 = cam_0;
+
     if (cam_perturb > 0.) {
         // perturb the orientation of the second camera
         auto gauss_dist = std::normal_distribution<float>(0., 1.);
@@ -181,45 +197,80 @@ int main(int argc, char** argv) {
         quat dq = quat::rotation_from_axis_angle(axis.unit(), gauss_dist(rng) * angle);
         cam_1.q = dq * cam_1.q;
     }
-    
-    if (one_source) {
-        // displace and shift camera 1's view to align with a plane in camera 0's view
-        cam_1.position = vec3(0.8, 0., 0.);
-        cam_1.lens.k_c = vec2(0.51, 0.5);
-        CaptureRef cap = _get_capture(0);
-        
-        viewer = new Visualizer{{FrameSource{cap, cam_0}}, x_tiles, y_tiles, init_depth, render_depth};
-        // duplicate the capture source and add it as a new one.
-        // share the filtered textures and captured frame.
-        viewer->solver->_debug_mirror_source(0, cam_1);
-        viewer->_init_lines(); // hack: re-init the frustums
-    } else {
-        cam_0.position = vec3(-2., 0., 0.);
-        cam_1.position = vec3( 2., 0., 0.);
-        // cam_1.lens.k_c = vec2(0.51, 0.5);
-        FrameSource fs[] = {
-            {_get_capture(0), cam_0},
-            {_get_capture(1), cam_1},
-        };
-        viewer = new Visualizer{{fs[0], fs[1]}, x_tiles, y_tiles, init_depth, render_depth};
+
+    std::shared_ptr<StereoSolver> solver = std::make_shared<StereoSolver>(
+        x_tiles * y_tiles,
+        _compute_tree_depth(1920, 1080, x_tiles * y_tiles, 16.)
+    );
+    std::vector<DeviceFrameSourceRef> devices;
+    FeedRef feed_0;
+    FeedRef feed_1;
+
+    switch (source_mode){
+        case SourceMode::Single: {
+            // displace and shift camera 1's view to align with a plane in camera 0's view
+            cam_1.position = vec3(0.8, 0., 0.);
+            cam_1.lens.k_c = vec2(0.51, 0.5);
+            CaptureRef cap = _get_capture(0);
+            // add a device and two views into that device with different virtual cameras.
+            // we don't share textures, but this will a better representation of performance
+            // for true dual-feed.
+            DeviceFrameSourceRef device = solver->create_device(cap);
+            feed_0 = device->add_viewpoint(range2ul::full, cam_0, "monostream cam A").feed;
+            feed_1 = device->add_viewpoint(range2ul::full, cam_1, "monostream cam B").feed;
+            devices.push_back(device);
+        } break;
+        case SourceMode::Dual: {
+            cam_0.position = vec3(-2., 0., 0.);
+            cam_1.position = vec3( 2., 0., 0.);
+            // cam_1.lens.k_c = vec2(0.51, 0.5);
+            DeviceFrameSourceRef d0 = solver->create_device(_get_capture(0));
+            DeviceFrameSourceRef d1 = solver->create_device(_get_capture(1));
+            feed_0 = d0->add_viewpoint(range2ul::full, cam_0, "dual stream cam A").feed;
+            feed_1 = d1->add_viewpoint(range2ul::full, cam_1, "dual stream cam B").feed;
+            devices.push_back(d0);
+            devices.push_back(d1);
+        } break;
+        case SourceMode::Split: {
+            cam_0 = cam_1 = _amazon_stereo_usb;
+            cam_0.position = vec3(-2., 0., 0.);
+            cam_1.position = vec3( 2., 0., 0.);
+            DeviceFrameSourceRef dev = solver->create_device(_get_capture(0));
+            vec2ul res = dev->res;
+            uint64_t w = res.x;
+            uint64_t h = res.y;
+            feed_0 = dev->add_viewpoint(range2ul{{0, 0}, {w / 2, h}}, cam_0, "split cam L").feed;
+            feed_1 = dev->add_viewpoint(range2ul{{w, 0}, {w,     h}}, cam_1, "split cam R").feed;
+        }
     }
-    
+
+    Visualizer* viewer = new Visualizer{
+        solver,
+        {feed_0, feed_1},
+        x_tiles,
+        y_tiles,
+        init_depth,
+        render_depth
+    };
+
     bool ok = true;
     // this time division is useful for separating initialization errors from
     // frame processing errors.
     std::cout << std::endl << "====== begin ======" << std::endl;
-    
+
     // make the initial state live now, because we won't swap buffers again.
     viewer->solver->begin_new_frame();
-    
+
     auto key_resp = [](GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (key == GLFW_KEY_SPACE and action == GLFW_PRESS) {
             // toggle run state
             should_run = not should_run;
             std::cout << (should_run ? "running" : "paused") << std::endl;
         } else if (key == GLFW_KEY_ENTER and action == GLFW_PRESS) {
-            if (view_mode == ViewMode::Splat) view_mode = ViewMode::Kernels;
-            else                              view_mode = ViewMode::Splat;
+            // cycle through view modes
+            if      (view_mode == ViewMode::Splat)   view_mode = ViewMode::Kernels;
+            else if (view_mode == ViewMode::Kernels) view_mode = ViewMode::Feed;
+            else if (view_mode == ViewMode::Feed)    view_mode = ViewMode::Splat;
         } else if ((key == GLFW_KEY_Q or key == GLFW_KEY_ESCAPE) and action == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         } else if (key == GLFW_KEY_R and action == GLFW_PRESS) {
@@ -235,21 +286,18 @@ int main(int argc, char** argv) {
             should_run = true;
         }
     };
-    
+
     glfwSetKeyCallback(viewer->window.window, key_resp);
-    
+
     bool running = should_run;
     while (not glfwWindowShouldClose(viewer->window.window)) {
         glfwPollEvents();
         bool first_step = false;
-        
-        if (one_source) {
-            viewer->solver->capture(0);
-            viewer->solver->_debug_swap_frame(1); // bring src 2 to the front with out re-capturing
-        } else {
-            viewer->solver->capture_all();
+
+        for (auto& dev : devices) {
+            dev->capture();
         }
-        
+
         if (should_reinit) {
             viewer->init_scene_features();
             viewer->solver->begin_new_frame();
@@ -263,12 +311,12 @@ int main(int argc, char** argv) {
             // intermediate frame
             viewer->solver->begin_new_frame();
         }
-        
+
         if (depth_change != 0) {
             viewer->set_render_depth(viewer->get_render_depth() + depth_change);
             depth_change = 0;
         }
-        
+
         bool do_time_solve = not first_step;
         viewer->do_frame(
             view_mode,
@@ -276,12 +324,12 @@ int main(int argc, char** argv) {
             do_time_solve,
             should_undisplace
         );
-        
+
         if (one_fr) {
             should_run = false;
             one_fr     = false;
         }
-        
+
         viewer->solver->device().poll(false); // xxx what does this do...?
         // todo: control frame rate
         if (viewer->solver->has_error()) {
@@ -289,14 +337,13 @@ int main(int argc, char** argv) {
             break;
         }
     }
-    // free the cameras
-    for (size_t i = 0; i < viewer->solver->frame_count(); ++i) {
-        auto& fs = viewer->solver->frame_source(i, FrameSelection::Current);
-        if (fs.source and fs.source->isOpened()) {
-            fs.source->release();
+    for (auto& dev : devices) {
+        CaptureRef cap = dev->capture_device;
+        if (cap and cap->isOpened()) {
+            cap->release();
         }
     }
-    
+
     if (ok) std::cout << "finished!" << std::endl;
     else    std::cerr << "Aborted."   << std::endl;
 }

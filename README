@@ -1,0 +1,20 @@
+build with scons:
+
+    scons --opencv -j8
+
+run:
+
+    bin/main
+
+rebuild compile_commands.json (if IDE language server is haywire):
+
+    scons --opencv -j8 compile_commands.json
+
+requirements:
+
+  - geomc
+  - behold
+  - wgpu-native
+  - wgpu c++ header
+  - scons
+
