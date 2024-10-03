@@ -151,20 +151,20 @@ int main(int argc, char** argv) {
     if (_find_cmd_option(argc, argv, "-h")) {
         std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
         std::cout << "Options:" << std::endl;
-        std::cout << "  --kernels          : view the kernels" << std::endl;
-        std::cout << "  --source           : specify stream source {single, dual, split} "
+        std::cout << "  --kernels           : view the kernels" << std::endl;
+        std::cout << "  --source            : specify stream source {single, dual, split} "
             "(default single)" << std::endl;
-        std::cout << "  --no-swap          : do not swap buffers" << std::endl;
-        std::cout << "  --render-depth <n> : render the specified mip level" << std::endl;
-        std::cout << "  --x-tiles <n>      : set the number of root-level x tiles (default 16)"
+        std::cout << "  --no-swap           : do not swap buffers" << std::endl;
+        std::cout << "  --render-depth <n>  : render the specified mip level" << std::endl;
+        std::cout << "  --x-tiles <n>       : set the number of root-level x tiles (default 16)"
             << std::endl;
-        std::cout << "  --y-tiles <n>      : set the number of root-level y tiles (default 9)"
+        std::cout << "  --y-tiles <n>       : set the number of root-level y tiles (default 9)"
             << std::endl;
-        std::cout << "  --perturb-cam <f>  : perturb the camera orientation by a "
+        std::cout << "  --perturb-cam <f>   : perturb the camera orientation by a "
             "random amount near `f` degrees" << std::endl;
-        std::cout << "  --init-depth <f>   : set the initial distance of the root features "
+        std::cout << "  --init-distance <f> : set the initial distance of the root features "
             "(default 25)" << std::endl;
-        std::cout << "  --idle-mode <s>    : set the idle mode to one of {fuse, match, none}."
+        std::cout << "  --idle-mode <s>     : set the idle mode to one of {fuse, match, none}."
             << std::endl;
         return 0;
     }
@@ -237,10 +237,14 @@ int main(int argc, char** argv) {
             cam_1.position = vec3( 2., 0., 0.);
             DeviceFrameSourceRef dev = solver->create_device(_get_capture(0));
             vec2ul res = dev->res;
-            uint64_t w = res.x;
-            uint64_t h = res.y;
-            feed_0 = dev->add_viewpoint(range2ul{{0, 0}, {w / 2, h}}, cam_0, "split cam L").feed;
-            feed_1 = dev->add_viewpoint(range2ul{{w, 0}, {w,     h}}, cam_1, "split cam R").feed;
+            uint64_t w  = res.x;
+            uint64_t h  = res.y;
+            uint64_t w2 = w / 2;
+            range2ul l_rect = {{0,  0}, {w2 - 1, h - 1}};
+            range2ul r_rect = {{w2, 0}, { w - 1, h - 1}};
+            feed_0 = dev->add_viewpoint(l_rect, cam_0, "split cam L").feed;
+            feed_1 = dev->add_viewpoint(r_rect, cam_1, "split cam R").feed;
+            devices.push_back(dev);
         }
     }
 
