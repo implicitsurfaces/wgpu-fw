@@ -17,4 +17,6 @@ requirements:
   - wgpu-native
   - wgpu c++ header
   - scons
+  - numpy
+  - scipy
 

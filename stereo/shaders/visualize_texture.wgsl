@@ -32,6 +32,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let L: vec3f = vec3f(0.2126, 0.7152, 0.0722);
     var a: f32 = dot(c_a, L);
     var b: f32 = dot(c_b, L);
+    // for signed signals:
     // a = a * 0.5 + 0.5;
     // b = b * 0.5 + 0.5;
     return vec4f(a * a, b * b, 0.5, 1.); // cheapass gamma

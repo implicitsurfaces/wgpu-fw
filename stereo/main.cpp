@@ -1,4 +1,3 @@
-#include "stereo/app/frame_source.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -123,9 +122,17 @@ bool     one_fr            = false;
 
 // calibrated with `camcal.py`:
 CameraState _logitech_720p_cam = {
+    // .lens = {
+    //     .aspect      = 1280 / 720.,
+    //     .fov_radians = 0.79314559, // ~45.5 degrees
+    //     .k_c         = vec2(0.5050f, 0.4939f),
+    //     // these values seem to change a lot between calibration runs?
+    //     .k_1_3       = vec3(0.08583640f, -0.2447363f, 0.12467069f),
+    //     .p_12        = vec2(-0.00054739257f, 0.00372932358f),
+    // }
     .lens = {
         .aspect      = 1280 / 720.,
-        .fov_radians = 0.9985, // ~57 degrees
+        .fov_radians = 0.79314559, // ~45.5 degrees
         .k_c         = vec2(0.5),
         // these values seem to change a lot between calibration runs?
         .k_1_3       = vec3(0.157115003f, -0.593241488f, 1.01098102f),
@@ -133,14 +140,28 @@ CameraState _logitech_720p_cam = {
     }
 };
 
-CameraState _amazon_stereo_usb = {
-    .lens = {
-        .aspect      = 16. / 9.,
-        .fov_radians = 2.,
-        .k_c         = vec2( 0.486832534,    0.45909096),
-        .k_1_3       = vec3( 0.0011709166,  -0.015928833, 0.00073791838),
-        .p_12        = vec2(-0.00075877646, -0.0015043166)
-    }
+CameraState _amazon_stereo_usb[2] = {
+    {
+        .lens = {
+            .aspect      = 16. / 9.,
+            .fov_radians = 2.0254138337859087,
+            .k_c         = vec2( 0.4814685371443074,  0.4591764636259458),
+            .k_1_3       = vec3( 0.0057923718479229, -0.026689811723197, 0.00439108554906956),
+            .p_12        = vec2(-0.0007431071344244, -0.001760447517467)
+        },
+        .position = vec3(-5.40744376 -0.48564595 -0.12239416),
+        .q = quat( 0.02283116, -0.03402222,  0.02428303,  0.99886514),
+    },
+    {
+        .lens = {
+            .aspect      = 16. / 9.,
+            .fov_radians = 2.0283139844676477,
+            .k_c         = vec2( 0.5123409167754559, 0.4997524533083742),
+            .k_1_3       = vec3(-0.0001125037325651, -0.019073267378810, 0.0022134558252726),
+            .p_12        = vec2(-0.0010851482990682, -0.001042322181732)
+        },
+        // this camera is the reference camera
+    },
 };
 
 
@@ -174,7 +195,7 @@ int main(int argc, char** argv) {
     auto x_tiles      = _get_option_u32(argc, argv, "--x-tiles").value_or(16);
     auto y_tiles      = _get_option_u32(argc, argv, "--y-tiles").value_or(9);
     auto cam_perturb  = _get_option_f32(argc, argv, "--perturb-cam").value_or(0.);
-    auto init_depth   = _get_option_f32(argc, argv, "--init-depth").value_or(25.);
+    auto init_depth   = _get_option_f32(argc, argv, "--init-distance").value_or(25.);
     idle_mode         = _get_choice<StepMode>(argc, argv, "--idle-mode", {
         {"fuse",  StepMode::Fuse},
         {"match", StepMode::Match},
@@ -232,9 +253,8 @@ int main(int argc, char** argv) {
             devices.push_back(d1);
         } break;
         case SourceMode::Split: {
-            cam_0 = cam_1 = _amazon_stereo_usb;
-            cam_0.position = vec3(-2., 0., 0.);
-            cam_1.position = vec3( 2., 0., 0.);
+            cam_0 = _amazon_stereo_usb[0];
+            cam_1 = _amazon_stereo_usb[1];
             DeviceFrameSourceRef dev = solver->create_device(_get_capture(0));
             vec2ul res = dev->res;
             uint64_t w  = res.x;
@@ -270,11 +290,10 @@ int main(int argc, char** argv) {
             // toggle run state
             should_run = not should_run;
             std::cout << (should_run ? "running" : "paused") << std::endl;
-        } else if (key == GLFW_KEY_ENTER and action == GLFW_PRESS) {
-            // cycle through view modes
-            if      (view_mode == ViewMode::Splat)   view_mode = ViewMode::Kernels;
-            else if (view_mode == ViewMode::Kernels) view_mode = ViewMode::Feed;
-            else if (view_mode == ViewMode::Feed)    view_mode = ViewMode::Splat;
+        } else if (key == GLFW_KEY_RIGHT and action == GLFW_PRESS) {
+            view_mode = (ViewMode) (((int)view_mode + 1) % 4);
+        } else if (key == GLFW_KEY_LEFT and action == GLFW_PRESS) {
+            view_mode = (ViewMode) positive_mod((int)view_mode - 1, 4);
         } else if ((key == GLFW_KEY_Q or key == GLFW_KEY_ESCAPE) and action == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         } else if (key == GLFW_KEY_R and action == GLFW_PRESS) {
