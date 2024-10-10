@@ -1,10 +1,12 @@
 #pragma once
 
+#include "stereo/type_defs.h"
 #include <stereo/gpu/model.h>
 
 namespace stereo {
 
 // Load a wavefront OBJ file and add it to the model.
-Model add_model(Model& model, std::string_view filename);
+// return the range of primitive ids added
+range1i add_model(Model& model, std::string_view filename);
 
 } // namespace stereo

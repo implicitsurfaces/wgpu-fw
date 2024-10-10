@@ -20,11 +20,11 @@ namespace stereo {
 
 using VertKey = std::tuple<uint32_t, uint32_t, uint32_t>;
 
-Model add_model(Model& model, std::string_view filename) {
+range1i add_model(Model& model, std::string_view filename) {
     std::ifstream in(filename);
     if (!in) {
         std::cerr << "Cannot open OBJ file: " << filename << std::endl;
-        return model;
+        return range1i::empty;
     }
 
     // Temporary storage for positions, normals, and texture coordinates
@@ -38,6 +38,9 @@ Model add_model(Model& model, std::string_view filename) {
     std::string line;
     Model::Prim prim;
     prim.index_range.lo = 0;
+
+    // list of prims IDs created
+    gpu_size_t last_prim_id = model.prims.size() - 1;
 
     while (std::getline(in, line)) {
         // Skip empty lines and comments
@@ -138,7 +141,10 @@ Model add_model(Model& model, std::string_view filename) {
         model.prims.push_back(prim);
     }
 
-    return model;
+    return {
+        static_cast<int32_t>(last_prim_id) + 1,
+        static_cast<int32_t>(model.prims.size()) - 1
+    };
 }
 
 }  // namespace stereo

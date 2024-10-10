@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
         } break;
         case SourceMode::Virtual: {
             vec2u virtual_res = {1280, 720};
-            ModelRef model = make_scene_model();
+            ModelRef model = make_scene_model(cam_0, init_depth * 2.);
             VirtualSceneRef scene {
                 new VirtualScene(
                     solver->device(),
