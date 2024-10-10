@@ -1,5 +1,6 @@
 #pragma once
 
+#include "webgpu/webgpu.h"
 #include <geomc/linalg/Matrix.h>
 #include <stereo/defs.h>
 
@@ -9,6 +10,8 @@ namespace stereo {
 enum struct BufferKind {
     Storage,
     Uniform,
+    Vertex,
+    Index,
 };
 
 template <typename T>
@@ -17,16 +20,16 @@ private:
     wgpu::Device _device = nullptr;
     wgpu::Buffer _buffer = nullptr;
     gpu_size_t     _size;
-    
+
     void _release() {
         if (_buffer) _buffer.release();
         if (_device) _device.release();
     }
-    
+
 public:
-    
+
     DataBuffer() = default;
-    
+
     DataBuffer(
         wgpu::Device device,
         gpu_size_t   size,
@@ -37,22 +40,31 @@ public:
     {
         wgpu::BufferDescriptor buffer_bd;
         buffer_bd.size = sizeof(T) * _size;
-        if (kind == BufferKind::Uniform) {
-            extra_flags |= wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-        } else {
-            extra_flags |= wgpu::BufferUsage::Storage;
+        switch (kind) {
+            case BufferKind::Uniform: {
+                extra_flags |= wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+            } break;
+            case BufferKind::Storage: {
+                extra_flags |= wgpu::BufferUsage::Storage;
+            } break;
+            case BufferKind::Vertex: {
+                extra_flags |= wgpu::BufferUsage::Vertex;
+            } break;
+            case BufferKind::Index: {
+                extra_flags |= wgpu::BufferUsage::Index;
+            } break;
         }
         buffer_bd.usage = extra_flags;
         buffer_bd.mappedAtCreation = false;
         _buffer = _device.createBuffer(buffer_bd);
     }
-    
+
     DataBuffer(
         wgpu::Device device,
         gpu_size_t size,
         WGPUBufferUsageFlags extra_usage_flags=wgpu::BufferUsage::None):
             DataBuffer(device, size, BufferKind::Storage, extra_usage_flags) {}
-    
+
     DataBuffer(const DataBuffer& other):
         _device(other._device),
         _buffer(other._buffer),
@@ -61,7 +73,7 @@ public:
         if (_device) _device.reference();
         if (_buffer) _buffer.reference();
     }
-    
+
     DataBuffer(DataBuffer&& other):
         _device(other._device),
         _buffer(other._buffer),
@@ -71,11 +83,11 @@ public:
         other._buffer = nullptr;
         other._size = 0;
     }
-    
+
     ~DataBuffer() {
         _release();
     }
-    
+
     DataBuffer& operator=(const DataBuffer& other) {
         _release();
         _device = other._device;
@@ -85,37 +97,37 @@ public:
         if (_buffer) _buffer.reference();
         return *this;
     }
-    
+
     DataBuffer& operator=(DataBuffer&& other) {
         std::swap(_device, other._device);
         std::swap(_buffer, other._buffer);
         std::swap(_size,   other._size);
         return *this;
     }
-    
+
     wgpu::Buffer buffer() const {
         return _buffer;
     }
-    
+
     void submit_write(const T* data, range1i range) {
         wgpu::Queue q = _device.getQueue();
         q.writeBuffer(_buffer, range.lo * sizeof(T), data, range.dimensions() * sizeof(T));
         q.release();
     }
-    
+
     void submit_write(const std::vector<T>& data) {
         submit_write(data.data(), range1i(0, data.size() - 1));
     }
-    
+
     void submit_write(const T& data, gpu_size_t index) {
         submit_write(&data, range1i(index, index));
     }
-    
+
     template <size_t N>
     void submit_write(const std::array<T,N>& data) {
         submit_write(data.data(), range1i(0, N - 1));
     }
-    
+
     void copy_to(DataBuffer<T>& other, gpu_size_t dst_offset, range1i src_range=range1i::full) {
         range1i actual_range = src_range & range1i(0, _size - 1);
         wgpu::Queue q = _device.getQueue();
@@ -133,15 +145,15 @@ public:
         commands.release();
         encoder.release();
     }
-    
+
     gpu_size_t size() const {
         return _size;
     }
-    
+
     gpu_size_t offset_of(gpu_size_t index) const {
         return index * sizeof(T);
     }
-    
+
 };
 
 }  // namespace stereo

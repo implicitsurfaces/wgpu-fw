@@ -66,7 +66,7 @@ wgpu::ShaderModule shader_from_str(
     return shader_module;
 }
 
-wgpu::ComputePipeline create_pipeline(
+wgpu::ComputePipeline create_compute_pipeline(
         wgpu::Device          device,
         wgpu::ShaderModule    shader,
         std::initializer_list<wgpu::BindGroupLayout> layouts,

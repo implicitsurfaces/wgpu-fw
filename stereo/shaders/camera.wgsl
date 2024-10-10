@@ -35,10 +35,13 @@ struct Dx4x2 {
 
 // project camera space to image space (on [0,1]^2)
 // image center is (0.5, 0.5); origin at the lower left.
+// the point xy coordinates should be divided by the z coordinate
+// to obtain the final image space coordinates.
 fn pinhole_projection(lens: LensParameters) -> mat3x3f {
     let t:   f32 = 2. * tan(lens.fov_radians / 2.); // factor of 2 for [-1, 1] -> [0, 1]
     let f_x: f32 = 1. / t;
     let f_y: f32 = f_x * lens.aspect;
+    // don't forget this is col major:
     return mat3x3f(
         vec3f(f_x,  0.,  0.),
         vec3f(0.,  f_y,  0.),
@@ -81,12 +84,12 @@ fn J_project_dp(cam: CameraState, p: vec3f) -> Dx3x2 {
     let Q: mat4x3f = P * M;
     let x_clip: vec3f = Q * vec4f(p, 1.);
     let x: vec2f = x_clip.xy / x_clip.z;
-    
+
     let Pz = transpose(Q)[2].xyz;
     let J: mat3x2f = (
         mat3x2f(Q[0].xy, Q[1].xy, Q[2].xy) - transpose(mat2x3(x.x * Pz, x.y * Pz))
     ) * (1. / x_clip.z);
-    
+
     return Dx3x2(x, J);
 }
 

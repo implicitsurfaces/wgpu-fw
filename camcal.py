@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-# xxx: problem: FOV calc appears to be wrong. inverted...?
-
 # from https://learnopencv.com/camera-calibration-using-opencv/
 # see also https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
+# and https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html#ga91018d80e2a93ade37539f01e6f07de5
 
 import cv2
 import numpy as np
@@ -13,7 +12,7 @@ from scipy.spatial.transform import Rotation
 # Defining the dimensions of checkerboard
 # (an actual chessboard. this is the count of the internal corners)
 CHECKERBOARD = (7,7)
-criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.0001)
 do_split = True
 n_cams   = 2 if do_split else 1
 
@@ -38,7 +37,6 @@ for i in range(n_cams):
 # Defining the world coordinates for 3D points
 objp = np.zeros((1, CHECKERBOARD[0] * CHECKERBOARD[1], 3), np.float32)
 objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
-prev_img_shape = None
 
 # Extracting path of individual image stored in a given directory
 cap = cv2.VideoCapture(0)
@@ -83,7 +81,7 @@ while True:
             ret, corners = cv2.findChessboardCorners(
                 gray,
                 CHECKERBOARD,
-                cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_FAST_CHECK + cv2.CALIB_CB_NORMALIZE_IMAGE
+                flags=cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_FAST_CHECK + cv2.CALIB_CB_NORMALIZE_IMAGE
             )
             if ret:
                 # refine the pixel coordinates to subpixel resolution
@@ -102,14 +100,17 @@ while True:
         print("good capture" if all_good else "bad capture")
         if all_good:
             # append the image points only if all cameras succeeded
-            for i, img_pts in enumerate(img_pts):
+            for i, ipts in enumerate(img_pts):
                 cam_objpts, cam_imgpts = cam_points[i]
                 cam_objpts.append(objp)
-                cam_imgpts.append(img_pts)
+                cam_imgpts.append(ipts)
 
 cap.release()
-
 cv2.destroyAllWindows()
+
+for i in range(n_cams):
+    objpts, imgpts = cam_points[i]
+    print(f"Camera {i}: Number of object points = {len(objpts)}, Number of image points = {len(imgpts)}")
 
 """
 Performing camera calibration by
@@ -152,19 +153,19 @@ for i in range(n_cams):
     print("")
     print( "    camera mtx: ")
     print(mtx_01)
+    print(f"error {ret}")
 
     solutions.append((mtx, dist))
 
 if do_split:
     # calibrate stereo camera configuration
-    stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
-    # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.0001)
-    obj_points  = cam_points[0][0]
-    imgpoints_0 = cam_points[0][1] # left
-    imgpoints_1 = cam_points[1][1] # right
+    stereo_calibration_flags = cv2.CALIB_FIX_INTRINSIC
+    obj_points    = cam_points[0][0]
+    imgpoints_0   = cam_points[0][1] # left
+    imgpoints_1   = cam_points[1][1] # right
     mtx_0, dist_0 = solutions[0]
     mtx_1, dist_1 = solutions[1]
-    h,w         = cam_shapes[0][:2] # todo: assumption: both cameras have the same resolution
+    h,w           = cam_shapes[0][:2] # todo: assumption: both cameras have the same resolution
     ret, CM1, dist1, CM2, dist2, R, T, E, F = cv2.stereoCalibrate(
         obj_points,
         imgpoints_0,
@@ -174,8 +175,8 @@ if do_split:
         mtx_1,
         dist_1,
         (w, h),
-        # criteria = criteria,
-        flags = stereocalibration_flags
+        criteria = criteria,
+        flags = stereo_calibration_flags
     )
 
     # R is a matrix which puts a coordinate in cam_0's coordinate system into
@@ -194,20 +195,15 @@ if do_split:
         [0, 0,-1],
     ])
 
-    # thiss could probably be simplified? but I can't take that much A-risk right now
-    # (algebraical risk)
-    R = np.dot(cv2native, np.dot(R, cv2native))
     T = np.dot(cv2native, T)
 
     # convert the rotation matrix to a quaternion:
     q = Rotation.from_matrix(R).as_quat()
 
-    # xxx: todo: convert to quaternion
-    # xxx: todo: convert from opencv's coordinate system to ours (rotation about +x)
     print("")
     print( "stereo parameters:")
     print( "  q (cam_0's rotation relative to cam_1):")
-    print(f"    (i, j, k, w) = {q}")
+    print(f"    (i, j, k, w) = {q[0]}, {q[1]}, {q[2]}, {q[3]}")
     print( "  T (cam_0 location relative to cam_1):")
-    print(f"    (x, y, z) = {T.ravel()}")
+    print(f"    (x, y, z) = {T[0][0]}, {T[1][0]}, {T[2][0]}")
     print(f"error: {ret}")
