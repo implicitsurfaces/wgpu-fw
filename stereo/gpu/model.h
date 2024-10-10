@@ -21,7 +21,7 @@ struct Model {
     };
 
     struct Prim {
-        range1i       index_range;
+        range1u       index_range;
         PrimitiveType geo_type;
         uint32_t      material_id;
         xf3           obj_to_world;
