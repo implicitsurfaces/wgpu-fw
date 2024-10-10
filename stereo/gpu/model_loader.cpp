@@ -20,7 +20,7 @@ namespace stereo {
 
 using VertKey = std::tuple<uint32_t, uint32_t, uint32_t>;
 
-Model add_model(Model& model, const std::string_view filename) {
+Model add_model(Model& model, std::string_view filename) {
     std::ifstream in(filename);
     if (!in) {
         std::cerr << "Cannot open OBJ file: " << filename << std::endl;

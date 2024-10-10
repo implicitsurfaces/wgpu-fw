@@ -3,11 +3,14 @@
 #include <chrono>
 #include <random>
 
+#include <stereo/util/dumb_argparse.h>
 #include <stereo/gpu/render_pipeline.h>
 #include <stereo/gpu/shader.h>
 #include <stereo/gpu/window.h>
 #include <stereo/app/solver.h>
 #include <stereo/app/visualize.h>
+#include <stereo/app/virtual_scene.h>
+#include <stereo/app/make_scene.h>
 
 using namespace stereo;
 using namespace std::chrono_literals;
@@ -26,76 +29,8 @@ static CaptureRef _get_capture(int index) {
     return cap;
 }
 
-static std::optional<size_t> _find_cmd_option(int argc, char** argv, std::string_view option) {
-    auto it = std::find(argv, argv + argc, option);
-    if (it == argv + argc) return std::nullopt;
-    return std::distance(argv, it);
-}
-
-static std::optional<uint32_t> _get_option_u32(int argc, char** argv, std::string_view option) {
-    auto i = _find_cmd_option(argc, argv, option);
-    if (i) {
-        size_t index = *i + 1;
-        if (index < argc) {
-            try {
-                return std::stoi(argv[index]);
-            } catch (std::invalid_argument& e) {
-                std::cerr << "Invalid integer argument for option `" << option << "`" << std::endl;
-                return std::nullopt;
-            }
-        } else {
-            std::cerr << "Missing integer argument for option `" << option << "`" << std::endl;
-            return std::nullopt;
-        }
-    } else {
-        return std::nullopt;
-    }
-}
-
-static std::optional<float> _get_option_f32(int argc, char**argv, std::string_view option) {
-    auto i = _find_cmd_option(argc, argv, option);
-    if (i) {
-        size_t index = *i + 1;
-        if (index < argc) {
-            try {
-                return std::stof(argv[index]);
-            } catch (std::invalid_argument& e) {
-                std::cerr << "Invalid float argument for option `" << option << "`" << std::endl;
-                return std::nullopt;
-            }
-        } else {
-            std::cerr << "Missing float argument for option `" << option << "`" << std::endl;
-            return std::nullopt;
-        }
-    } else {
-        return std::nullopt;
-    }
-}
-
-template <typename T>
-static std::optional<T> _get_choice(
-    int argc,
-    char** argv,
-    std::string_view option,
-    std::initializer_list<std::pair<std::string_view, T>> choices)
-{
-    auto i = _find_cmd_option(argc, argv, option);
-    if (i) {
-        size_t index = *i + 1;
-        if (index < argc) {
-            auto choice = std::string_view(argv[index]);
-            for (auto& [name, value] : choices) {
-                if (choice == name) return value;
-            }
-            std::cerr << "Invalid choice for option `" << option << "`" << std::endl;
-            return std::nullopt;
-        } else {
-            std::cerr << "Missing choice argument for option `" << option << "`" << std::endl;
-            return std::nullopt;
-        }
-    } else {
-        return std::nullopt;
-    }
+static DeviceFrameSourceRef _get_camera_source(SolverRef solver, CaptureRef cap) {
+    return std::make_shared<DeviceFrameSource>(solver->mip_generator(), solver->filter(), cap);
 }
 
 static int64_t _time_ns() {
@@ -108,6 +43,7 @@ enum struct SourceMode {
     Single,
     Dual,
     Split,
+    Virtual,
 };
 
 // hacky gvars. too lazy to make the callbacks work better
@@ -169,7 +105,7 @@ int main(int argc, char** argv) {
     rng_t rng {13242752664001236155ULL ^ _time_ns()};
     bool swap_buffers = true;
 
-    if (_find_cmd_option(argc, argv, "-h")) {
+    if (find_cmd_option(argc, argv, "-h")) {
         std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
         std::cout << "Options:" << std::endl;
         std::cout << "  --kernels           : view the kernels" << std::endl;
@@ -189,19 +125,19 @@ int main(int argc, char** argv) {
             << std::endl;
         return 0;
     }
-    if (_find_cmd_option(argc, argv, "--kernels"))    view_mode    = ViewMode::Kernels;
-    if (_find_cmd_option(argc, argv, "--no-swap"))    swap_buffers = false;
-    auto render_depth = _get_option_u32(argc, argv, "--render-depth").value_or(0);
-    auto x_tiles      = _get_option_u32(argc, argv, "--x-tiles").value_or(16);
-    auto y_tiles      = _get_option_u32(argc, argv, "--y-tiles").value_or(9);
-    auto cam_perturb  = _get_option_f32(argc, argv, "--perturb-cam").value_or(0.);
-    auto init_depth   = _get_option_f32(argc, argv, "--init-distance").value_or(25.);
-    idle_mode         = _get_choice<StepMode>(argc, argv, "--idle-mode", {
+    if (find_cmd_option(argc, argv, "--kernels"))    view_mode    = ViewMode::Kernels;
+    if (find_cmd_option(argc, argv, "--no-swap"))    swap_buffers = false;
+    auto render_depth = get_option_u32(argc, argv, "--render-depth").value_or(0);
+    auto x_tiles      = get_option_u32(argc, argv, "--x-tiles").value_or(16);
+    auto y_tiles      = get_option_u32(argc, argv, "--y-tiles").value_or(9);
+    auto cam_perturb  = get_option_f32(argc, argv, "--perturb-cam").value_or(0.);
+    auto init_depth   = get_option_f32(argc, argv, "--init-distance").value_or(25.);
+    idle_mode         = get_choice<StepMode>(argc, argv, "--idle-mode", {
         {"fuse",  StepMode::Fuse},
         {"match", StepMode::Match},
         {"none",  StepMode::None},
     }).value_or(StepMode::Match);
-    source_mode = _get_choice<SourceMode>(argc, argv, "--source", {
+    source_mode = get_choice<SourceMode>(argc, argv, "--source", {
         {"single", SourceMode::Single},
         {"dual",   SourceMode::Dual},
         {"split",  SourceMode::Split},
@@ -219,11 +155,11 @@ int main(int argc, char** argv) {
         cam_1.q = dq * cam_1.q;
     }
 
-    std::shared_ptr<StereoSolver> solver = std::make_shared<StereoSolver>(
+    SolverRef solver = std::make_shared<StereoSolver>(
         x_tiles * y_tiles,
         _compute_tree_depth(1920, 1080, x_tiles * y_tiles, 16.)
     );
-    std::vector<DeviceFrameSourceRef> devices;
+    std::vector<FrameSourceRef> frame_sources;
     FeedRef feed_0;
     FeedRef feed_1;
 
@@ -236,26 +172,26 @@ int main(int argc, char** argv) {
             // add a device and two views into that device with different virtual cameras.
             // we don't share textures, but this will a better representation of performance
             // for true dual-feed.
-            DeviceFrameSourceRef device = solver->create_device(cap);
+            DeviceFrameSourceRef device = _get_camera_source(solver, cap);
             feed_0 = device->add_viewpoint(range2ul::full, cam_0, "monostream cam A").feed;
             feed_1 = device->add_viewpoint(range2ul::full, cam_1, "monostream cam B").feed;
-            devices.push_back(device);
+            frame_sources.push_back(device);
         } break;
         case SourceMode::Dual: {
             cam_0.position = vec3(-2., 0., 0.);
             cam_1.position = vec3( 2., 0., 0.);
             // cam_1.lens.k_c = vec2(0.51, 0.5);
-            DeviceFrameSourceRef d0 = solver->create_device(_get_capture(0));
-            DeviceFrameSourceRef d1 = solver->create_device(_get_capture(1));
+            DeviceFrameSourceRef d0 = _get_camera_source(solver, _get_capture(0));
+            DeviceFrameSourceRef d1 = _get_camera_source(solver, _get_capture(1));
             feed_0 = d0->add_viewpoint(range2ul::full, cam_0, "dual stream cam A").feed;
             feed_1 = d1->add_viewpoint(range2ul::full, cam_1, "dual stream cam B").feed;
-            devices.push_back(d0);
-            devices.push_back(d1);
+            frame_sources.push_back(d0);
+            frame_sources.push_back(d1);
         } break;
         case SourceMode::Split: {
             cam_0 = _amazon_stereo_usb[0];
             cam_1 = _amazon_stereo_usb[1];
-            DeviceFrameSourceRef dev = solver->create_device(_get_capture(0));
+            DeviceFrameSourceRef dev = _get_camera_source(solver, _get_capture(0));
             vec2ul res = dev->res;
             uint64_t w  = res.x;
             uint64_t h  = res.y;
@@ -264,8 +200,24 @@ int main(int argc, char** argv) {
             range2ul r_rect = {{w2, 0}, { w - 1, h - 1}};
             feed_0 = dev->add_viewpoint(l_rect, cam_0, "split cam L").feed;
             feed_1 = dev->add_viewpoint(r_rect, cam_1, "split cam R").feed;
-            devices.push_back(dev);
-        }
+            frame_sources.push_back(dev);
+        } break;
+        case SourceMode::Virtual: {
+            vec2u virtual_res = {1280, 720};
+            ModelRef model = make_scene_model();
+            VirtualSceneRef scene {
+                new VirtualScene(
+                    solver->device(),
+                    solver->mip_generator(),
+                    solver->filter(),
+                    {
+                        {virtual_res, cam_0},
+                        {virtual_res, cam_1},
+                    },
+                    model
+                )
+            };
+        } break;
     }
 
     Visualizer* viewer = new Visualizer{
@@ -317,7 +269,7 @@ int main(int argc, char** argv) {
         glfwPollEvents();
         bool first_step = false;
 
-        for (auto& dev : devices) {
+        for (auto& dev : frame_sources) {
             dev->capture();
         }
 
@@ -362,10 +314,11 @@ int main(int argc, char** argv) {
             break;
         }
     }
-    for (auto& dev : devices) {
-        CaptureRef cap = dev->capture_device;
-        if (cap and cap->isOpened()) {
-            cap->release();
+    for (auto& f : frame_sources) {
+        DeviceFrameSourceRef dev = std::dynamic_pointer_cast<DeviceFrameSource>(f);
+        if (dev) {
+            CaptureRef cap = dev->capture_device;
+            if (cap->isOpened()) cap->release();
         }
     }
 

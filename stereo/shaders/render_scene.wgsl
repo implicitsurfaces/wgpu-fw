@@ -57,6 +57,10 @@ fn vs_main(v: Vert) -> VertexOutput {
 
 @fragment
 fn fs_main(v: VertexOutput) -> @location(0) vec4f {
-    // xxx todo
-    return vec4f(0.);
+    let diffuse: vec3f = textureSample(t_diffuse, v.uv).xyz;
+    let normal:  vec3f = normalize(v.n_world);
+    let light:   vec3f = normalize(vec3f(1., 1., 1.));
+    let NdotL:   f32   = max(dot(normal, light), 0.);
+    let color:   vec3f = diffuse * NdotL;
+    return vec4f(color, 1.);
 }
