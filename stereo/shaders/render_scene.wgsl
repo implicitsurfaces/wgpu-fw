@@ -45,11 +45,11 @@ struct Material {
 @vertex
 fn vs_main(v: Vert) -> VertexOutput {
     var out: VertexOutput;
-    let p_world: vec3f = u_model2w * v.p;
+    let p_world: vec4f = u_model2w * vec4f(v.p, 1.);
     let M: mat4x4f = u_model2w;
     let N: mat3x3f = transpose(inverse3x3(mat3x3f(M[0].xyz, M[1].xyz, M[2].xyz)));
-    out.position = u_camera.proj * u_camera.world2cam * vec4f(p_world, 1.);
-    out.p_world  = p_world;
+    out.position = u_camera.proj * u_camera.world2cam * p_world;
+    out.p_world  = p_world.xyz;
     out.n_world  = normalize(N * v.n);
     out.uv       = v.uv;
     return out;
@@ -57,7 +57,7 @@ fn vs_main(v: Vert) -> VertexOutput {
 
 @fragment
 fn fs_main(v: VertexOutput) -> @location(0) vec4f {
-    let diffuse: vec3f = textureSample(t_diffuse, v.uv).xyz;
+    let diffuse: vec3f = textureSample(t_diffuse, u_sampler, v.uv).xyz;
     let normal:  vec3f = normalize(v.n_world);
     let light:   vec3f = normalize(vec3f(1., 1., 1.));
     let NdotL:   f32   = max(dot(normal, light), 0.);

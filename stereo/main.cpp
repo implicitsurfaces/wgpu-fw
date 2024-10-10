@@ -138,9 +138,10 @@ int main(int argc, char** argv) {
         {"none",  StepMode::None},
     }).value_or(StepMode::Match);
     source_mode = get_choice<SourceMode>(argc, argv, "--source", {
-        {"single", SourceMode::Single},
-        {"dual",   SourceMode::Dual},
-        {"split",  SourceMode::Split},
+        {"single",  SourceMode::Single},
+        {"dual",    SourceMode::Dual},
+        {"split",   SourceMode::Split},
+        {"virtual", SourceMode::Virtual}
     }).value_or(SourceMode::Single);
 
     CameraState cam_0 = _logitech_720p_cam;

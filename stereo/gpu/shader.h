@@ -41,12 +41,14 @@ wgpu::BindGroupLayoutEntry compute_rw_buffer_layout(gpu_size_t binding) {
 }
 
 template <typename T>
-wgpu::BindGroupLayoutEntry uniform_layout(gpu_size_t binding, bool has_dynamic_offset=false) {
+wgpu::BindGroupLayoutEntry uniform_layout(
+        gpu_size_t binding,
+        bool has_dynamic_offset=false,
+        wgpu::ShaderStage extra_stages=wgpu::ShaderStage::None)
+{
     wgpu::BindGroupLayoutEntry entry = wgpu::Default;
     entry.binding     = binding;
-    // xxx: fragment stage is added to allow debugging visualization
-    //   (used by tile visualizer)
-    entry.visibility  = wgpu::ShaderStage::Compute | wgpu::ShaderStage::Fragment;
+    entry.visibility  = wgpu::ShaderStage::Compute | extra_stages;
     entry.buffer.type = wgpu::BufferBindingType::Uniform;
     entry.buffer.minBindingSize = sizeof(T);
     entry.buffer.hasDynamicOffset = has_dynamic_offset;

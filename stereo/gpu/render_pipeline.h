@@ -49,11 +49,11 @@ struct RenderPipeline {
             vertex_attribute(0, field),
             vertex_attribute(1, fields)...
         };
-        for (size_t i = 2; i < sizeof...(fields); ++i) {
+        for (size_t i = 2; i <= sizeof...(fields); ++i) {
             attrs[i].shaderLocation = i;
         }
         wgpu::VertexBufferLayout layout = wgpu::Default;
-        layout.attributeCount = sizeof...(fields);
+        layout.attributeCount = sizeof...(fields) + 1;
         layout.attributes     = attrs;
         layout.arrayStride    = sizeof(C);
         layout.stepMode       = wgpu::VertexStepMode::Vertex;
