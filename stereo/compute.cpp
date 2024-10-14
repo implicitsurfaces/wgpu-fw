@@ -101,7 +101,7 @@ bool Application::init_device() {
     requiredLimits.limits.maxStorageBufferBindingSize = m_bufferSize;
     requiredLimits.limits.maxStorageTexturesPerShaderStage = 1;
     */
-    
+
     // Create device
     DeviceDescriptor deviceDesc {};
     deviceDesc.label = "GPU compute device";
@@ -110,13 +110,14 @@ bool Application::init_device() {
     deviceDesc.defaultQueue.label = "Default dispatch queue";
     m_device = adapter.requestDevice(deviceDesc);
     std::cout << "Got device: " << m_device << std::endl;
-    
+
     // Add an error callback for more debug info
-    m_uncapturedErrorCallback = m_device.setUncapturedErrorCallback([](ErrorType type, char const* message) {
-        std::cout << "Device error: type " << type;
-        if (message) std::cout << " (message: " << message << ")";
-        std::cout << std::endl;
-    });
+    // xxx: this also went away??
+    // m_uncapturedErrorCallback = m_device.setUncapturedErrorCallback([](ErrorType type, char const* message) {
+    //     std::cout << "Device error: type " << type;
+    //     if (message) std::cout << " (message: " << message << ")";
+    //     std::cout << std::endl;
+    // });
     /*
     // xxx dunno why this method can't be found??
     m_deviceLostCallback = m_device.setDeviceLostCallback([](DeviceLostReason reason, char const* message) {
@@ -147,7 +148,7 @@ void Application::init_texture() {
     uint8_t* pixelData = nullptr;
     if (nullptr == pixelData) throw std::runtime_error("Could not load input texture!");
     Extent3D textureSize = { (uint32_t)width, (uint32_t)height, 1 };
-    
+
     // Create texture
     TextureDescriptor textureDesc;
     textureDesc.dimension       = TextureDimension::_2D;
@@ -156,7 +157,7 @@ void Application::init_texture() {
     textureDesc.sampleCount     = 1;
     textureDesc.viewFormatCount = 0;
     textureDesc.viewFormats     = nullptr;
-    
+
     textureDesc.usage = (
         TextureUsage::TextureBinding | // to read the texture in a shader
         TextureUsage::StorageBinding | // to write the texture in a shader
@@ -167,11 +168,11 @@ void Application::init_texture() {
     textureDesc.mipLevelCount = max_mip_level(textureSize);
     m_textureMipSizes.resize(textureDesc.mipLevelCount);
     m_textureMipSizes[0] = textureSize;
-    
+
     m_texture = m_device.createTexture(textureDesc);
-    
+
     Queue queue = m_device.getQueue();
-    
+
     // Upload texture data for MIP level 0 to the GPU
     ImageCopyTexture destination;
     destination.texture = m_texture;
@@ -234,15 +235,15 @@ void Application::terminate_texture_views() {
 void Application::init_bind_group(uint32_t nextMipLevel) {
     // Create compute bind group
     std::vector<BindGroupEntry> entries {2, Default};
-    
+
     // Input buffer
     entries[0].binding = 0;
     entries[0].textureView = m_textureMipViews[nextMipLevel - 1];
-    
+
     // Output buffer
     entries[1].binding = 1;
     entries[1].textureView = m_textureMipViews[nextMipLevel];
-    
+
     BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout     = m_bindGroupLayout;
     bindGroupDesc.entryCount = (uint32_t) entries.size();
@@ -257,24 +258,24 @@ void Application::terminate_bind_group() {
 void Application::init_bind_group_layout() {
     // Create bind group layout
     std::vector<BindGroupLayoutEntry> bindings {2, Default};
-    
+
     // Input image: MIP level 0 of the texture
     bindings[0].binding               = 0;
     bindings[0].texture.sampleType    = TextureSampleType::Float;
     bindings[0].texture.viewDimension = TextureViewDimension::_2D;
     bindings[0].visibility            = ShaderStage::Compute;
-    
+
     // Output image: MIP level 1 of the texture
     bindings[1].binding                      = 1;
     bindings[1].storageTexture.access        = StorageTextureAccess::WriteOnly;
     bindings[1].storageTexture.format        = TextureFormat::RGBA8Unorm;
     bindings[1].storageTexture.viewDimension = TextureViewDimension::_2D;
     bindings[1].visibility                   = ShaderStage::Compute;
-    
+
     BindGroupLayoutDescriptor bindGroupLayoutDesc;
     bindGroupLayoutDesc.entryCount = (uint32_t) bindings.size();
     bindGroupLayoutDesc.entries    = bindings.data();
-    
+
     m_bindGroupLayout = m_device.createBindGroupLayout(bindGroupLayoutDesc);
 }
 
@@ -286,13 +287,13 @@ void Application::init_compute_pipeline() {
     // Load compute shader
     // xxx: load the shader source from file
     ShaderModule computeShaderModule; // = ...
-    
+
     // Create compute pipeline layout
     PipelineLayoutDescriptor pipelineLayoutDesc;
     pipelineLayoutDesc.bindGroupLayoutCount = 1;
     pipelineLayoutDesc.bindGroupLayouts     = (WGPUBindGroupLayout*) &m_bindGroupLayout;
     m_pipelineLayout = m_device.createPipelineLayout(pipelineLayoutDesc);
-    
+
     // Create compute pipeline
     ComputePipelineDescriptor computePipelineDesc;
     computePipelineDesc.compute.constantCount = 0;
@@ -310,18 +311,18 @@ void Application::terminate_compute_pipeline() {
 
 void Application::compute() {
     Queue queue = m_device.getQueue();
-    
+
     // Initialize a command encoder
     CommandEncoderDescriptor encoderDesc = Default;
     CommandEncoder encoder = m_device.createCommandEncoder(encoderDesc);
-    
+
     // Create compute pass
     ComputePassDescriptor computePassDesc;
     computePassDesc.timestampWrites = nullptr;
     ComputePassEncoder computePass  = encoder.beginComputePass(computePassDesc);
-    
+
     computePass.setPipeline(m_pipeline);
-    
+
     for (uint32_t nextLevel = 1; nextLevel < m_textureMipSizes.size(); ++nextLevel) {
         init_bind_group(nextLevel);
         computePass.setBindGroup(0, m_bindGroup, 0, nullptr);
@@ -336,14 +337,14 @@ void Application::compute() {
 
         terminate_bind_group();
     }
-    
+
     // Finalize compute pass
     computePass.end();
-    
+
     // Encode and submit the GPU commands
     CommandBuffer commands = encoder.finish(CommandBufferDescriptor{});
     queue.submit(commands);
-    
+
 #if !defined(WEBGPU_BACKEND_WGPU)
     wgpuCommandBufferRelease(commands);
     wgpuCommandEncoderRelease(encoder);

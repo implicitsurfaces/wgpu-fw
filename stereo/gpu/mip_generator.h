@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stereo/gpu/texture.h>
 #include <stereo/gpu/bindgroup.h>
 #include <string_view>
@@ -28,7 +30,8 @@ public:
         MipGeneratorRef gen,
         vec2u size,
         wgpu::TextureFormat format,
-        std::string_view label
+        std::string_view label,
+        wgpu::TextureUsage extra_usage=wgpu::TextureUsage::None
     );
     MipTexture(MipGeneratorRef gen, Texture tex);
 

@@ -19,7 +19,8 @@ Texture::Texture(
         wgpu::Device device,
         vec2u size,
         wgpu::TextureFormat format,
-        const char* label):
+        const char* label,
+        wgpu::TextureUsageFlags usage):
     _device(device)
 {
     device.reference();
@@ -31,10 +32,7 @@ Texture::Texture(
     desc.sampleCount     = 1;
     desc.viewFormatCount = 0;
     desc.viewFormats     = nullptr;
-    desc.usage           = 
-        wgpu::TextureUsage::TextureBinding | // to read the texture from a shader
-        wgpu::TextureUsage::StorageBinding | // to write the texture from a shader
-        wgpu::TextureUsage::CopyDst;         // to upload the input data
+    desc.usage           = usage;
     desc.label = label;
     _texture = device.createTexture(desc);
     _mip_range = {0, ((int)desc.mipLevelCount) - 1};
@@ -116,7 +114,7 @@ void Texture::_init() {
     view_descriptor.dimension       = wgpu::TextureViewDimension::_2D;
     view_descriptor.format          = _texture.getFormat();
     view_descriptor.mipLevelCount   = 1;
-    
+
     _mip_views.reserve(n_levels);
     for (size_t level = view_range.lo; level <= view_range.hi; ++level) {
         std::string label = "frame source view (mip = " + std::to_string(level) + ")";
@@ -124,7 +122,7 @@ void Texture::_init() {
         view_descriptor.baseMipLevel = level;
         _mip_views.push_back(_texture.createView(view_descriptor));
     }
-    
+
     view_descriptor.baseMipLevel  = view_range.lo;
     view_descriptor.mipLevelCount = n_levels;
     view_descriptor.label = "texture view (all mip levels)";
@@ -196,12 +194,12 @@ void Texture::submit_write(uint8_t* data, gpu_size_t bytes_per_channel) {
     dst_texture.origin   = { 0, 0, 0 };
     dst_texture.aspect   = wgpu::TextureAspect::All;
     dst_texture.mipLevel = 0;
-    
+
     wgpu::TextureDataLayout src_layout;
     src_layout.offset       = 0;
     src_layout.bytesPerRow  = bytes_per_channel * sizeof(uint8_t) * w;
     src_layout.rowsPerImage = h;
-    
+
     wgpu::Queue queue = device().getQueue();
     queue.writeTexture(
         dst_texture,

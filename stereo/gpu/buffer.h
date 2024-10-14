@@ -140,10 +140,9 @@ public:
             actual_range.dimensions() * sizeof(T)
         );
         wgpu::CommandBuffer commands = encoder.finish(wgpu::Default);
+        encoder.release();
         q.submit(commands);
         q.release();
-        commands.release();
-        encoder.release();
     }
 
     gpu_size_t size() const {

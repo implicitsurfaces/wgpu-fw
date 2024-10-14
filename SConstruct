@@ -61,7 +61,7 @@ env = Environment(
         '-Wno-unknown-warning-option',
         # '-v'
     ],
-    LIBS=['geomc', 'wgpu_native', 'glfw3webgpu'],
+    LIBS=['geomc', 'wgpu_native', 'glfw3webgpu', 'jpeg'],
     CPPPATH=['#'],
     TS_OPTS=['--target', 'ES2018'],
     BUILDERS={'Ts' : Ts},

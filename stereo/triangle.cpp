@@ -1,5 +1,6 @@
 // Include the C++ wrapper instead of the raw header(s)
 // #define WEBGPU_CPP_IMPLEMENTATION
+#include "webgpu/webgpu.h"
 #include <webgpu/webgpu.hpp>
 
 #include <GLFW/glfw3.h>
@@ -96,18 +97,18 @@ bool Application::Initialize() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
-    
+
     Instance instance = wgpuCreateInstance(nullptr);
-    
+
     std::cout << "Requesting adapter..." << std::endl;
     surface = glfwGetWGPUSurface(instance, window);
     RequestAdapterOptions adapterOpts = {};
     adapterOpts.compatibleSurface = surface;
     Adapter adapter = instance.requestAdapter(adapterOpts);
     std::cout << "Got adapter: " << adapter << std::endl;
-    
+
     instance.release();
-    
+
     std::cout << "Requesting device..." << std::endl;
     DeviceDescriptor deviceDesc = {};
     deviceDesc.label = "My Device";
@@ -122,23 +123,23 @@ bool Application::Initialize() {
     };
     device = adapter.requestDevice(deviceDesc);
     std::cout << "Got device: " << device << std::endl;
-    
-    uncapturedErrorCallbackHandle = device.setUncapturedErrorCallback([](ErrorType type, char const* message) {
-        std::cout << "Uncaptured device error: type " << type;
-        if (message) std::cout << " (" << message << ")";
-        std::cout << std::endl;
-    });
-    
+
+    // xxx the method for this has changed
+    // uncapturedErrorCallbackHandle = device.setUncapturedErrorCallback([](ErrorType type, char const* message) {
+    //     std::cout << "Uncaptured device error: type " << type;
+    //     if (message) std::cout << " (" << message << ")";
+    //     std::cout << std::endl;
+    // });
+
     queue = device.getQueue();
 
     // Configure the surface
     SurfaceConfiguration config = {};
-    
+
     // Configuration of the textures created for the underlying swap chain
     config.width = 640;
     config.height = 480;
     config.usage = TextureUsage::RenderAttachment;
-    surfaceFormat = surface.getPreferredFormat(adapter);
     config.format = surfaceFormat;
 
     // And we do not need any particular view format:
@@ -213,7 +214,6 @@ void Application::MainLoop() {
     encoder.release();
 
     queue.submit(1, &command);
-    command.release();
 
     // At the enc of the frame
     targetView.release();
@@ -291,16 +291,16 @@ void Application::InitializePipeline() {
 
     // Each sequence of 3 vertices is considered as a triangle
     pipelineDesc.primitive.topology = PrimitiveTopology::TriangleList;
-    
+
     // We'll see later how to specify the order in which vertices should be
     // connected. When not specified, vertices are considered sequentially.
     pipelineDesc.primitive.stripIndexFormat = IndexFormat::Undefined;
-    
+
     // The face orientation is defined by assuming that when looking
     // from the front of the face, its corner vertices are enumerated
     // in the counter-clockwise (CCW) order.
     pipelineDesc.primitive.frontFace = FrontFace::CCW;
-    
+
     // But the face orientation does not matter much because we do not
     // cull (i.e. "hide") the faces pointing away from us (which is often
     // used for optimization).
@@ -321,12 +321,12 @@ void Application::InitializePipeline() {
     blendState.alpha.srcFactor = BlendFactor::Zero;
     blendState.alpha.dstFactor = BlendFactor::One;
     blendState.alpha.operation = BlendOperation::Add;
-    
+
     ColorTargetState colorTarget;
     colorTarget.format = surfaceFormat;
     colorTarget.blend = &blendState;
     colorTarget.writeMask = ColorWriteMask::All; // We could write to only some of the color channels.
-    
+
     // We have only one target because our render pass has only one output color
     // attachment.
     fragmentState.targetCount = 1;
@@ -345,7 +345,7 @@ void Application::InitializePipeline() {
     // Default value as well (irrelevant for count = 1 anyways)
     pipelineDesc.multisample.alphaToCoverageEnabled = false;
     pipelineDesc.layout = nullptr;
-    
+
     pipeline = device.createRenderPipeline(pipelineDesc);
 
     // We no longer need to access the shader module

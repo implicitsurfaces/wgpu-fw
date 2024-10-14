@@ -8,6 +8,7 @@ things to tier?
   - in img space or world space
 - adaptive camera estimation
 - texture bit depth
+- rm libjpeg + rendering shit from the build for release
 
 need to implement:
 

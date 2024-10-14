@@ -1,3 +1,4 @@
+#include "webgpu/wgpu.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -218,6 +219,9 @@ int main(int argc, char** argv) {
                     model
                 )
             };
+            frame_sources.push_back(scene);
+            feed_0 = scene->viewpoints[0].feed;
+            feed_1 = scene->viewpoints[1].feed;
         } break;
     }
 
@@ -307,8 +311,11 @@ int main(int argc, char** argv) {
         }
 
         // allow async / callbacks to be processed (e.g. buffer read/writes)
-        // false: do not block if no events are pending
-        viewer->solver->device().poll(false);
+        // viewer->solver->instance().processEvents();
+        // viewer->solver->device().poll(); // dunno why this went away?
+        WGPUWrappedSubmissionIndex idx;
+        wgpuDevicePoll(viewer->solver->device(), false, &idx);
+
         // todo: control frame rate
         if (viewer->solver->has_error()) {
             ok = false;

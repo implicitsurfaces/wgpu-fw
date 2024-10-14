@@ -71,20 +71,20 @@ bool Application::Initialize() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
-	
+
 	Instance instance = wgpuCreateInstance(nullptr);
-	
+
 	surface = glfwGetWGPUSurface(instance, window);
-	
+
 	std::cout << "Requesting adapter..." << std::endl;
 	surface = glfwGetWGPUSurface(instance, window);
 	RequestAdapterOptions adapterOpts = {};
 	adapterOpts.compatibleSurface = surface;
 	Adapter adapter = instance.requestAdapter(adapterOpts);
 	std::cout << "Got adapter: " << adapter << std::endl;
-	
+
 	instance.release();
-	
+
 	std::cout << "Requesting device..." << std::endl;
 	DeviceDescriptor deviceDesc = {};
 	deviceDesc.label = "My Device";
@@ -99,23 +99,24 @@ bool Application::Initialize() {
 	};
 	device = adapter.requestDevice(deviceDesc);
 	std::cout << "Got device: " << device << std::endl;
-	
-	uncapturedErrorCallbackHandle = device.setUncapturedErrorCallback([](ErrorType type, char const* message) {
-		std::cout << "Uncaptured device error: type " << type;
-		if (message) std::cout << " (" << message << ")";
-		std::cout << std::endl;
-	});
-	
+
+	// this is now gone. see solver.cpp for the new way to do this
+	// uncapturedErrorCallbackHandle = device.setUncapturedErrorCallback([](ErrorType type, char const* message) {
+	// 	std::cout << "Uncaptured device error: type " << type;
+	// 	if (message) std::cout << " (" << message << ")";
+	// 	std::cout << std::endl;
+	// });
+
 	queue = device.getQueue();
 
 	// Configure the surface
 	SurfaceConfiguration config = {};
-	
+
 	// Configuration of the textures created for the underlying swap chain
 	config.width  = 640;
 	config.height = 480;
 	config.usage  = TextureUsage::RenderAttachment;
-	TextureFormat surfaceFormat = surface.getPreferredFormat(adapter);
+	TextureFormat surfaceFormat = TextureFormat::Undefined;
 	config.format = surfaceFormat;
 
 	// And we do not need any particular view format:
@@ -129,7 +130,7 @@ bool Application::Initialize() {
 
 	// Release the adapter only after it has been fully utilized
 	adapter.release();
-	
+
 	return true;
 }
 
@@ -182,7 +183,6 @@ void Application::MainLoop() {
 	encoder.release();
 
 	queue.submit(1, &command);
-	command.release();
 
 	// At the enc of the frame
 	targetView.release();

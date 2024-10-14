@@ -30,12 +30,17 @@ MipTexture::MipTexture(
         MipGeneratorRef gen,
         vec2u size,
         wgpu::TextureFormat format,
-        std::string_view label):
+        std::string_view label,
+        wgpu::TextureUsage extra_usage):
             texture(
                 gen->get_device(),
                 size,
                 format,
-                label.data()
+                label.data(),
+                extra_usage |
+                    wgpu::TextureUsage::CopyDst |        // for upload
+                    wgpu::TextureUsage::StorageBinding | // for mip write-out
+                    wgpu::TextureUsage::TextureBinding   // for access during mip gen
             ),
         generator(gen)
 {
@@ -94,12 +99,10 @@ void MipTexture::generate() {
         compute_pass.dispatchWorkgroups(buckets_x, buckets_y, 1);
     }
     compute_pass.end();
-    wgpu::CommandBuffer commands = encoder.finish(wgpu::CommandBufferDescriptor{});
-    queue.submit(commands);
-
-    encoder.release();
-    commands.release();
+    wgpu::CommandBuffer commands = encoder.finish(wgpu::Default);
     compute_pass.release();
+    encoder.release();
+    queue.submit(commands);
     queue.release();
 }
 

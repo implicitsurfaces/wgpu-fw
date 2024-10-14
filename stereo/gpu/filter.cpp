@@ -82,13 +82,11 @@ void FilteredTexture::_init() {
         dst_entries[2].textureView = laplace.view_for_mip(i);
 
         wgpu::BindGroupDescriptor dst_desc;
+        std::string label = "filter3x3 destination bind group (mip=" + std::to_string(i) + ")";
         dst_desc.layout     = filter->_dst_layout;
         dst_desc.entryCount = dst_entries.size();
         dst_desc.entries    = dst_entries.data();
-        dst_desc.label      = ("filter3x3 destination bind group (mip="
-                + std::to_string(i)
-                + ")"
-            ).c_str();
+        dst_desc.label      = label.c_str();
         BindGroup bg = source.device().createBindGroup(dst_desc);
         _dst_bind_groups.push_back(std::move(bg));
     }
@@ -306,11 +304,10 @@ void Filter3x3::apply(FilteredTexture& tex) {
 
     compute_pass.end();
     wgpu::CommandBuffer commands = encoder.finish();
-    queue.submit(commands);
-
-    encoder.release();
-    commands.release();
     compute_pass.release();
+    encoder.release();
+
+    queue.submit(commands);
     queue.release();
 }
 

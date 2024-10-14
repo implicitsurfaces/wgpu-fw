@@ -39,19 +39,21 @@ void Window::init() {
     opts.compatibleSurface = surface;
     wgpu::Adapter adapter = instance.requestAdapter(opts);
     wgpu::SurfaceConfiguration config;
-    
+    wgpu::SurfaceCapabilities caps;
+    surface.getCapabilities(adapter, &caps);
+
     config.width   = w;
     config.height  = h;
     config.usage   = wgpu::TextureUsage::RenderAttachment;
-    surface_format = surface.getPreferredFormat(adapter);
+    surface_format = caps.formats[0];
     config.format  = surface_format;
-    
+
     config.viewFormatCount = 0;
     config.viewFormats     = nullptr;
     config.device          = device;
     config.presentMode     = wgpu::PresentMode::Fifo;
     config.alphaMode       = wgpu::CompositeAlphaMode::Auto;
-    
+
     surface.configure(config);
     adapter.release();
 }
