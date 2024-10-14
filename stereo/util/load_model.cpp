@@ -1,7 +1,6 @@
-#include "geomc/Hash.h"
 #include <fstream>
 #include <sstream>
-#include <stereo/gpu/model_loader.h>
+#include <stereo/util/load_model.h>
 
 // stg, c++ is dumb as hell for not providing this shit:
 template <>
@@ -50,6 +49,7 @@ range1i add_model(Model& model, std::string_view filename) {
         std::string prefix;
         iss >> prefix;
 
+        std::vector<uint32_t> face_indices;
         if (prefix == "v") {
             // Vertex position
             vec3 pos;
@@ -67,7 +67,6 @@ range1i add_model(Model& model, std::string_view filename) {
             temp_normals.push_back(normal);
         } else if (prefix == "f") {
             // Face definition
-            std::vector<uint32_t> face_indices;
             std::string vertex_str;
             while (iss >> vertex_str) {
                 int pos_idx = 0, uv_idx = 0, norm_idx = 0;
@@ -125,6 +124,7 @@ range1i add_model(Model& model, std::string_view filename) {
                 model.indices.push_back(face_indices[i]);
                 model.indices.push_back(face_indices[i + 1]);
             }
+            face_indices.clear();
         } else if (prefix == "g" || prefix == "o") {
             // Handle new group or object
             if (not model.indices.empty()) {
@@ -136,7 +136,7 @@ range1i add_model(Model& model, std::string_view filename) {
     }
 
     // Add the last primitive
-    if (!model.indices.empty()) {
+    if (not model.indices.empty()) {
         prim.index_range.hi = static_cast<uint32_t>(model.indices.size()) - 1;
         model.prims.push_back(prim);
     }
