@@ -164,6 +164,7 @@ int main(int argc, char** argv) {
     std::vector<FrameSourceRef> frame_sources;
     FeedRef feed_0;
     FeedRef feed_1;
+    std::optional<box3> model_bounds = std::nullopt;
 
     switch (source_mode){
         case SourceMode::Single: {
@@ -206,7 +207,9 @@ int main(int argc, char** argv) {
         } break;
         case SourceMode::Virtual: {
             vec2u virtual_res = {1280, 720};
-            ModelRef model = make_scene_model(cam_0, init_depth * 2.);
+            float far = init_depth * 2.;
+            ModelRef model = make_scene_model(cam_0, far * 0.95);
+            cam_1.position = vec3(cam_0.position) + vec3(1., 0., 0.);
             VirtualSceneRef scene {
                 new VirtualScene(
                     solver->device(),
@@ -219,9 +222,11 @@ int main(int argc, char** argv) {
                     model
                 )
             };
+            scene->set_near_far(far / 1000., far);
             frame_sources.push_back(scene);
             feed_0 = scene->viewpoints[0].feed;
             feed_1 = scene->viewpoints[1].feed;
+            model_bounds = box3(model->prims[0].obj_bounds, model->prims[0].obj_to_world);
         } break;
     }
 
@@ -231,7 +236,8 @@ int main(int argc, char** argv) {
         x_tiles,
         y_tiles,
         init_depth,
-        render_depth
+        render_depth,
+        model_bounds,
     };
 
     bool ok = true;

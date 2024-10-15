@@ -1,5 +1,4 @@
 #include <stereo/gpu/model.h>
-#include <variant>
 
 namespace stereo {
 
@@ -9,18 +8,11 @@ uint32_t Model::add_verts(std::initializer_list<Model::Vert> vs) {
     return base;
 }
 
-range1u Model::add_indices(std::initializer_list<uint32_t> is, Model::Offset offset) {
-    uint32_t base = 0;
-    if (std::holds_alternative<IndexBase>(offset)) {
-        IndexBase b = std::get<IndexBase>(offset);
-        base = b == IndexBase::End ? indices.size() : 0;
-    } else {
-        base = std::get<uint32_t>(offset);
-    }
+range1u Model::add_indices(std::initializer_list<uint32_t> is, uint32_t offset) {
     uint32_t range_begin = indices.size();
     indices.reserve(indices.size() + is.size());
     for (uint32_t i : is) {
-        indices.push_back(i + base);
+        indices.push_back(i + offset);
     }
     return {range_begin, (uint32_t) is.size() - 1};
 }
@@ -28,9 +20,9 @@ range1u Model::add_indices(std::initializer_list<uint32_t> is, Model::Offset off
 uint32_t Model::add_prim(
     PrimitiveType geo_type,
     std::initializer_list<uint32_t> indices,
-    Model::Offset offset,
-    const xf3&    obj_to_world,
-    uint32_t      material_id)
+    uint32_t   offset,
+    const xf3& obj_to_world,
+    uint32_t   material_id)
 {
     range1u index_range = add_indices(indices, offset);
 

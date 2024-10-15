@@ -29,6 +29,9 @@ struct Material {
 };
 */
 
+// todo: camera binding should be different from prim binding probably,
+//   if we care about efficiency.
+
 // prim binding
 @group(0) @binding(0) var<uniform> u_camera:  CameraUniforms;
 @group(0) @binding(1) var<uniform> u_model2w: mat4x4f;
@@ -45,9 +48,9 @@ struct Material {
 @vertex
 fn vs_main(v: Vert) -> VertexOutput {
     var out: VertexOutput;
-    let p_world: vec4f = u_model2w * vec4f(v.p, 1.);
     let M: mat4x4f = u_model2w;
     let N: mat3x3f = transpose(inverse3x3(mat3x3f(M[0].xyz, M[1].xyz, M[2].xyz)));
+    let p_world: vec4f = M * vec4f(v.p, 1.);
     out.position = u_camera.proj * u_camera.world2cam * p_world;
     out.p_world  = p_world.xyz;
     out.n_world  = normalize(N * v.n);
@@ -61,6 +64,11 @@ fn fs_main(v: VertexOutput) -> @location(0) vec4f {
     let normal:  vec3f = normalize(v.n_world);
     let light:   vec3f = normalize(vec3f(1., 1., 1.));
     let NdotL:   f32   = 1.; // max(dot(normal, light), 0.);
-    let color:   vec3f = diffuse * NdotL;
+    var color:   vec3f = diffuse * NdotL;
+
+    // xxx debug
+    let s: f32 = 0.5 * sin(v.uv.x*512.) + 0.5;
+    color = vec3f(s,s,s);
+
     return vec4f(color, 1.);
 }
