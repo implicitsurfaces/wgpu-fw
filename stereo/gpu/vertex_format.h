@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stereo/defs.h>
+#include <stereo/gpu/gpu_types.h>
 
 namespace stereo {
 
@@ -16,6 +17,11 @@ struct VertexFormat<vec2> {
 
 template <>
 struct VertexFormat<vec3> {
+    static constexpr WGPUVertexFormat format = WGPUVertexFormat_Float32x3;
+};
+
+template <>
+struct VertexFormat<vec3gpu> {
     static constexpr WGPUVertexFormat format = WGPUVertexFormat_Float32x3;
 };
 

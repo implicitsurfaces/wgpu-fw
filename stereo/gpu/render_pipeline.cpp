@@ -71,7 +71,6 @@ void RenderPipeline::_init(
 
     // define geometry type
     pl_dsc.primitive.topology  = _topology;
-    pl_dsc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
     pl_dsc.primitive.frontFace = wgpu::FrontFace::CCW;
     pl_dsc.primitive.cullMode  = wgpu::CullMode::Back; // todo: expose this
 
@@ -80,7 +79,6 @@ void RenderPipeline::_init(
     pl_dsc.multisample.count = 1;
     pl_dsc.multisample.mask  = ~0u;
     pl_dsc.multisample.alphaToCoverageEnabled = false;
-    pl_dsc.layout = nullptr;
 
     // set up fragment shader
     wgpu::FragmentState frg_state;

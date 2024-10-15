@@ -66,9 +66,5 @@ fn fs_main(v: VertexOutput) -> @location(0) vec4f {
     let NdotL:   f32   = 1.; // max(dot(normal, light), 0.);
     var color:   vec3f = diffuse * NdotL;
 
-    // xxx debug
-    let s: f32 = 0.5 * sin(v.uv.x*512.) + 0.5;
-    color = vec3f(s,s,s);
-
     return vec4f(color, 1.);
 }
