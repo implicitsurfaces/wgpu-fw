@@ -49,7 +49,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     }
     let scene_feature_idx: u32 = feature_idx_buffer[i_idx];
     if scene_feature_idx >= arrayLength(&scene_features) { return; }
-    
+
     // compute the "frequency weighted" covariance and mean of the sample set
     // see https://stats.stackexchange.com/questions/193046/online-weighted-covariance
     // this is a best guess of the distribution of the displacement between the
@@ -72,12 +72,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     let k: f32 = 1. / (w_sum - 1.); // weight with bessel correction
     let est_cov: mat2x2f = k * C;
     let est_q:       f32 = q / w_sum;
-    
+
     let src_image_feature: FeaturePair  = src_image_features[feature_idx];
     let src_scene_feature: SceneFeature = scene_features[scene_feature_idx];
-    
+
     let fudge_factor: f32 = 1.; // xxx fudge factor
-    
+
     var updated: Estimate3D;
     if uniforms.fuse_mode == FuseMode_TimeUpdate {
         // perform a time update
@@ -108,13 +108,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
             uniforms.cam_b
         );
     } else if uniforms.fuse_mode == FuseMode_StereoInit {
-        
+
         // xxx todo: use update_ekf_unproject_initial_2d_3d()
-        
+
     }
-    
+
     let information = 1. / determinant(est_cov);
-    
+
     // todo: how to update the quality estimate?
     //   - geometric mean of old and new?
     //   - weighted geometric mean, based on quantified overlap?
@@ -134,7 +134,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         // xxx debug
         src_scene_feature.color,
     );
-    
+
     debug_image_features[feature_idx] = DebugFeature2D(
         mu,
         est_cov,

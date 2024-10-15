@@ -27,15 +27,17 @@ range1i add_model(Model& model, std::string_view filename) {
     }
 
     // Temporary storage for positions, normals, and texture coordinates
-    std::vector<vec3> temp_positions;
-    std::vector<vec3> temp_normals;
-    std::vector<vec2> temp_uvs;
+    std::vector<vec3>     temp_positions;
+    std::vector<vec3>     temp_normals;
+    std::vector<vec2>     temp_uvs;
+    std::vector<uint32_t> face_indices; // holds one face at a time
 
     // Cache to avoid duplicate vertices
     std::unordered_map<VertKey, uint32_t> vert_cache;
 
     std::string line;
     Model::Prim prim;
+    range3 bbox;
     prim.index_range.lo = 0;
 
     // list of prims IDs created
@@ -49,12 +51,12 @@ range1i add_model(Model& model, std::string_view filename) {
         std::string prefix;
         iss >> prefix;
 
-        std::vector<uint32_t> face_indices;
         if (prefix == "v") {
             // Vertex position
             vec3 pos;
             iss >> pos.x >> pos.y >> pos.z;
             temp_positions.push_back(pos);
+            bbox |= pos;
         } else if (prefix == "vt") {
             // Texture coordinate
             vec2 uv;
@@ -128,9 +130,11 @@ range1i add_model(Model& model, std::string_view filename) {
         } else if (prefix == "g" || prefix == "o") {
             // Handle new group or object
             if (not model.indices.empty()) {
+                prim.obj_bounds = bbox;
                 prim.index_range.hi = static_cast<uint32_t>(model.indices.size()) - 1;
                 model.prims.push_back(prim);
                 prim.index_range.lo = prim.index_range.hi + 1;
+                bbox = range3::empty;
             }
         }
     }
@@ -138,6 +142,7 @@ range1i add_model(Model& model, std::string_view filename) {
     // Add the last primitive
     if (not model.indices.empty()) {
         prim.index_range.hi = static_cast<uint32_t>(model.indices.size()) - 1;
+        prim.obj_bounds = bbox;
         model.prims.push_back(prim);
     }
 

@@ -206,6 +206,7 @@ int main(int argc, char** argv) {
             frame_sources.push_back(dev);
         } break;
         case SourceMode::Virtual: {
+            size_t which_prim = 1; // 0 = boks. 1 = bnuuy.
             vec2u virtual_res = {1280, 720};
             float far = init_depth * 2.;
             ModelRef model = make_scene_model(cam_0, far * 0.95);
@@ -226,7 +227,10 @@ int main(int argc, char** argv) {
             frame_sources.push_back(scene);
             feed_0 = scene->viewpoints[0].feed;
             feed_1 = scene->viewpoints[1].feed;
-            model_bounds = box3(model->prims[0].obj_bounds, model->prims[0].obj_to_world);
+            model_bounds = box3(
+                model->prims[which_prim].obj_bounds,
+                model->prims[which_prim].obj_to_world
+            );
         } break;
     }
 
@@ -249,14 +253,15 @@ int main(int argc, char** argv) {
     viewer->solver->begin_new_frame();
 
     auto key_resp = [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+
         if (key == GLFW_KEY_SPACE and action == GLFW_PRESS) {
             // toggle run state
             should_run = not should_run;
             std::cout << (should_run ? "running" : "paused") << std::endl;
         } else if (key == GLFW_KEY_RIGHT and action == GLFW_PRESS) {
-            view_mode = (ViewMode) (((int)view_mode + 1) % 4);
+            view_mode = (ViewMode) (((int)view_mode + 1) % N_VIEW_MODES);
         } else if (key == GLFW_KEY_LEFT and action == GLFW_PRESS) {
-            view_mode = (ViewMode) positive_mod((int)view_mode - 1, 4);
+            view_mode = (ViewMode) positive_mod((int)view_mode - 1, N_VIEW_MODES);
         } else if ((key == GLFW_KEY_Q or key == GLFW_KEY_ESCAPE) and action == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         } else if (key == GLFW_KEY_R and action == GLFW_PRESS) {
