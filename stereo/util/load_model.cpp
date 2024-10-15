@@ -38,7 +38,7 @@ range1i add_model(Model& model, std::string_view filename) {
     std::string line;
     Model::Prim prim;
     range3 bbox;
-    prim.index_range.lo = 0;
+    prim.index_range.lo = model.indices.size();
 
     // list of prims IDs created
     gpu_size_t last_prim_id = model.prims.size() - 1;
