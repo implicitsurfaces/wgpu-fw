@@ -13,7 +13,7 @@ struct SceneFeature {
     x_cov: mat3x3f,
     scale: f32, // radius of the feature in world space
     wt:    f32,
-    
+
     // xxx debug
     color: vec3f,
 }
@@ -68,9 +68,10 @@ struct WeightedSample {
 // the samples are taken from the [-1,1]^2 patch of the feature's local coordinate system.
 // the edge samples are at |x| = 1 exactly.
 struct SampleKernel {
-    r: mat4x4f,
-    g: mat4x4f,
-    b: mat4x4f,
+    f:       mat4x4f,
+    df_dx:   mat4x4f,
+    df_dy:   mat4x4f,
+    laplace: mat4x4f,
 }
 
 struct KernelPair {

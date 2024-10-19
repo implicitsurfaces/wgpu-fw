@@ -40,15 +40,15 @@ static wgpu::Texture _clone_texture(
 
 FilteredTexture::FilteredTexture(Texture source, wgpu::Device device, Filter3x3Ref filter):
     source(source),
-    df_dx(
+    r_tex(
         _clone_texture(source.texture(), device, "df_dx texture"),
         device
     ),
-    df_dy(
+    g_tex(
         _clone_texture(source.texture(), device, "df_dy texture"),
         device
     ),
-    laplace(
+    b_tex(
         _clone_texture(source.texture(), device, "laplace texture"),
         device
     ),
@@ -77,9 +77,9 @@ void FilteredTexture::_init() {
     int32_t mip_levels = source.num_mip_levels();
     _dst_bind_groups.reserve(mip_levels);
     for (int32_t i = 0; i < mip_levels; i++) {
-        dst_entries[0].textureView = df_dx.view_for_mip(i);
-        dst_entries[1].textureView = df_dy.view_for_mip(i);
-        dst_entries[2].textureView = laplace.view_for_mip(i);
+        dst_entries[0].textureView = r_tex.view_for_mip(i);
+        dst_entries[1].textureView = g_tex.view_for_mip(i);
+        dst_entries[2].textureView = b_tex.view_for_mip(i);
 
         wgpu::BindGroupDescriptor dst_desc;
         std::string label = "filter3x3 destination bind group (mip=" + std::to_string(i) + ")";

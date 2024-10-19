@@ -1,8 +1,8 @@
-@group(0) @binding(0) var src_tex:     texture_2d<f32>;
+@group(0) @binding(0) var src_tex: texture_2d<f32>;
 
-@group(1) @binding(0) var df_dx_tex:   texture_storage_2d<rgba8snorm,write>;
-@group(1) @binding(1) var df_dy_tex:   texture_storage_2d<rgba8snorm,write>;
-@group(1) @binding(2) var laplace_tex: texture_storage_2d<rgba8snorm,write>;
+@group(1) @binding(0) var r_tex: texture_storage_2d<rgba8snorm,write>;
+@group(1) @binding(1) var g_tex: texture_storage_2d<rgba8snorm,write>;
+@group(1) @binding(2) var b_tex: texture_storage_2d<rgba8snorm,write>;
 
 @group(2) @binding(0) var<uniform> mip_level: i32;
 
@@ -26,11 +26,11 @@ fn fill_window(c: vec2<u32>) {
 }
 
 fn sobel_feldman(m: array<vec3f,9>) -> DxDy {
-    let dx: vec3f = 
-        -3. * m[0] + -10. * m[3] + -3. * m[6] + 
+    let dx: vec3f =
+        -3. * m[0] + -10. * m[3] + -3. * m[6] +
          3. * m[2] +  10. * m[5] +  3. * m[8];
     let dy: vec3f =
-         3. * m[0] +  10. * m[1] +  3. * m[2] + 
+         3. * m[0] +  10. * m[1] +  3. * m[2] +
         -3. * m[6] + -10. * m[7] + -3. * m[8];
     return DxDy(dx, dy);
 }
@@ -48,11 +48,15 @@ fn laplace(m: array<vec3f,9>) -> vec3f {
 
 @compute @workgroup_size(8,8)
 fn filter_main(@builtin(global_invocation_id) id: vec3<u32>) {
-    fill_window(id.xy);
-    var dx_dy = sobel_feldman(src_texels);
     var a: f32 = 1. / f32(1u << u32(mip_level));
     var b: f32 = 16. * a;
-    textureStore(df_dx_tex,   id.xy, a * vec4<f32>(dx_dy.dx, 1.));
-    textureStore(df_dy_tex,   id.xy, a * vec4<f32>(dx_dy.dy, 1.));
-    textureStore(laplace_tex, id.xy, b * vec4<f32>(laplace(src_texels), 1.));
+    fill_window(id.xy);
+    var f:     vec3f = src_texels[4];
+    var dx_dy:  DxDy = sobel_feldman(src_texels);
+    var del:   vec3f = b * laplace(src_texels);
+    dx_dy.dx *= a;
+    dx_dy.dy *= a;
+    textureStore(r_tex, id.xy, vec4f(f.r, dx_dy.dx.r, dx_dy.dy.r, del.r));
+    textureStore(g_tex, id.xy, vec4f(f.g, dx_dy.dx.g, dx_dy.dy.g, del.g));
+    textureStore(b_tex, id.xy, vec4f(f.b, dx_dy.dx.b, dx_dy.dy.b, del.b));
 }

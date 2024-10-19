@@ -280,6 +280,7 @@ int main(int argc, char** argv) {
 
     glfwSetKeyCallback(viewer->window.window, key_resp);
 
+    auto last_frame_end = std::chrono::high_resolution_clock::now();
     bool running = should_run;
     while (not glfwWindowShouldClose(viewer->window.window)) {
         glfwPollEvents();
@@ -332,6 +333,14 @@ int main(int argc, char** argv) {
             ok = false;
             break;
         }
+
+        auto now = std::chrono::high_resolution_clock::now();
+        auto elapsed_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_frame_end).count();
+
+        std::cout << "fps: " << 1000. / elapsed_ms << "\r" << std::flush;
+
+        last_frame_end = now;
     }
     for (auto& f : frame_sources) {
         DeviceFrameSourceRef dev = std::dynamic_pointer_cast<DeviceFrameSource>(f);

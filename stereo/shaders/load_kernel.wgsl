@@ -20,15 +20,17 @@ fn main(
     let feature_idx: u32 = global_id.x;
     if feature_idx >= arrayLength(&features) { return; }
     var x: u32 = global_id.y;
-    
-    var r_a: vec4f = vec4f(0.);
-    var g_a: vec4f = vec4f(0.);
-    var b_a: vec4f = vec4f(0.);
-    
-    var r_b: vec4f = vec4f(0.);
-    var g_b: vec4f = vec4f(0.);
-    var b_b: vec4f = vec4f(0.);
-    
+
+    var f_a:     vec4f = vec4f(0.);
+    var df_dx_a: vec4f = vec4f(0.);
+    var df_dy_a: vec4f = vec4f(0.);
+    var lapl_a:  vec4f = vec4f(0.);
+
+    var f_b:     vec4f = vec4f(0.);
+    var df_dx_b: vec4f = vec4f(0.);
+    var df_dy_b: vec4f = vec4f(0.);
+    var lapl_b:  vec4f = vec4f(0.);
+
     // the samples are taken from [-1, 1]^2 in the feature's local coordinate system.
     // the edge samples are at |x| = 1 exactly.
     for (var i: u32 = 0; i < 4; i++) {
@@ -38,36 +40,40 @@ fn main(
         let st:       vec2f = 2. * xy - vec2f(1.);            // [-1, 1]
         let coords_a: vec2f = feature.a.st + feature.a.basis * st;
         let coords_b: vec2f = feature.b.st + feature.b.basis * st;
-        
-        let a: vec3f = textureSampleGrad(
+
+        let a: vec4f = textureSampleGrad(
             tex_a,
             tex_sampler,
             coords_a,
             feature.a.basis[0] / 2.,
-            feature.a.basis[1] / 2.).rgb;
-        let b: vec3f = textureSampleGrad(
+            feature.a.basis[1] / 2.);
+        let b: vec4f = textureSampleGrad(
             tex_b,
             tex_sampler,
             coords_b,
             feature.b.basis[0] / 2.,
-            feature.b.basis[1] / 2.).rgb;
-        
-        r_a[i] = a.r;
-        g_a[i] = a.g;
-        b_a[i] = a.b;
-        
-        r_b[i] = b.r;
-        g_b[i] = b.g;
-        b_b[i] = b.b;
+            feature.b.basis[1] / 2.);
+
+        f_a[i]     = a.r;
+        df_dx_a[i] = a.g;
+        df_dy_a[i] = a.b;
+        lapl_a[i]  = a.a;
+
+        f_b[i]     = b.r;
+        df_dx_b[i] = b.g;
+        df_dy_b[i] = b.b;
+        lapl_b[i]  = b.a;
     }
-    
+
     // todo: use the chain rule to compute the gradient of the texture sample,
     //   if a uniform flag requests it.
-    kernel_pairs[feature_idx].a.r[x] = r_a;
-    kernel_pairs[feature_idx].a.g[x] = g_a;
-    kernel_pairs[feature_idx].a.b[x] = b_a;
-    
-    kernel_pairs[feature_idx].b.r[x] = r_b;
-    kernel_pairs[feature_idx].b.g[x] = g_b;
-    kernel_pairs[feature_idx].b.b[x] = b_b;
+    kernel_pairs[feature_idx].a.f[x]       = f_a;
+    kernel_pairs[feature_idx].a.df_dx[x]   = df_dx_a;
+    kernel_pairs[feature_idx].a.df_dy[x]   = df_dy_a;
+    kernel_pairs[feature_idx].a.laplace[x] = lapl_a;
+
+    kernel_pairs[feature_idx].b.f[x]       = f_b;
+    kernel_pairs[feature_idx].b.df_dx[x]   = df_dx_b;
+    kernel_pairs[feature_idx].b.df_dy[x]   = df_dy_b;
+    kernel_pairs[feature_idx].b.laplace[x] = lapl_b;
 }

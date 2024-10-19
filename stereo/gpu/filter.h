@@ -10,9 +10,11 @@ using Filter3x3Ref = std::shared_ptr<Filter3x3>;
 
 struct FilteredTexture {
     Texture source;
-    Texture df_dx;
-    Texture df_dy;
-    Texture laplace;
+    // pack the filtering results for each channel into its own texture.
+    // order is (original, df_dx, df_dy, laplace)
+    Texture r_tex;
+    Texture g_tex;
+    Texture b_tex;
 
     Filter3x3Ref filter = nullptr;
 
