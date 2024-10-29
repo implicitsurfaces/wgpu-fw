@@ -59,7 +59,7 @@ fn update(a: Estimate2D, b: Estimate2D) -> Estimate2D {
     let K: mat2x2f = S0 * inverse2x2(S0 + S1);
     let J: mat2x2f = I_2x2 - K;
     let E: mat2x2f = J * a.sigma * transpose(J);
-    
+
     return Estimate2D(
         a.x + K * (b.x - a.x),    // update mean
         regularize_posdef_2x2(E), // update covariance
@@ -74,22 +74,22 @@ fn update_quantified(a: Estimate2D, b: Estimate2D) -> QuantifiedEstimate2D {
     let J: mat2x2f = I_2x2 - K;
     let dx:  vec2f = b.x - a.x;
     let E: mat2x2f = J * a.sigma * transpose(J);
-    
+
     let e = Estimate2D(
         a.x + K * dx,             // update mean
         regularize_posdef_2x2(E), // update covariance
     );
-    
+
     // normalization factors of the two estimates;
     // the "characteristic areas" of the two distributions.
     // we omit the factor of inverse tau from all the measures below.
     let a_norm: f32 = sqrt(determinant(S0));
     let b_norm: f32 = sqrt(determinant(S1));
-    
+
     // overlap area of the two distributions
     let ln_q:   f32 = -dot(dx, s01_inv * dx) / 2.;
     let c_norm: f32 = sqrt(determinant(s01_inv));
-    
+
     return QuantifiedEstimate2D(
         e,
         // "overlap area" over "characteristic area"
@@ -114,10 +114,10 @@ fn update_ekf_unproject_2d_3d(
     //  (3x2) = (3x3) * (3x2) * (2x2)
     let K:  mat2x3f = P * HT * S0;
     let M:  mat3x3f = I_3x3 - K * H;
-    
+
     let P1: mat3x3f = M * P;
     let mu: vec3f   = prior.x + K * (measurement.x - prior_2d);
-    
+
     return Estimate3D(
         mu,
         regularize_posdef_3x3(P1)
@@ -152,14 +152,14 @@ fn update_ekf_unproject_initial_2d_3d(
         H_aT[0], H_aT[1], H_bT[0], H_bT[1]
     );
     let H: mat3x4f = transpose(HT);
-    
+
     // xxx: what does R look like? it should be 4x4, and I think it's not block-diagonal
     let R: mat4x4f = mat4x4f(); // ...
-    
+
     let R_inv:  mat4x4f = inverse4x4(R);
     var S:      mat3x3f = inverse3x3(HT * R_inv * H);
     S = regularize_posdef_3x3(S);
-    
+
     return Estimate3D(
         S * HT * R_inv * vec4f(measure_a.x, measure_b.x),
         S
@@ -175,6 +175,7 @@ fn update_unproject_2d_3d(
     return update_ekf_unproject_2d_3d(prior, p_2d, measurement, H);
 }
 
+// compute the combined mean and covariance of two populations
 fn aggregate_3d(
     x_a: WeightedEstimate3D,
     x_b: WeightedEstimate3D) -> WeightedEstimate3D
@@ -188,16 +189,16 @@ fn aggregate_3d(
     let C_a:  mat3x3f = x_a.sigma;
     let C_b:  mat3x3f = x_b.sigma;
     let w_ab:     f32 = w_a + w_b;
-    
+
     if w_ab == 0. { return x_a; }
-    
+
     let k:        f32 = w_a * w_b / w_ab;
     let d:      vec3f = mu_b - mu_a;
     let B:    mat3x3f = outer3x3(d, d);
     // let C_ab: mat3x3f = ((w_a - 1) * C_a + (w_b - 1) * C_b + k * B) * (1. / (w_ab - 1.));
     // the above makes fucky covariances. this looks better:
     let C_ab: mat3x3f = (w_a * C_a + w_b * C_b + k * B) * (1. / w_ab);
-    
+
     return WeightedEstimate3D(
         (w_a * mu_a + w_b * mu_b) / w_ab,
         C_ab,

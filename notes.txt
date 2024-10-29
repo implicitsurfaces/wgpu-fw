@@ -10,6 +10,10 @@ things to tier?
 - texture bit depth
 - rm libjpeg + rendering shit from the build for release
 
+things to cleanup:
+- use proper SVD for feature rotation fit; cases where H matrix has no inverse are not handled
+
+
 need to implement:
 
 x load camera image into texture

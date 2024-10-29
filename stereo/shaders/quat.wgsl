@@ -43,10 +43,33 @@ fn qrot(q: vec4f, v: vec3f) -> vec3f {
     // this is from wikipedia; afaict it's completely wrong.
     // let t: vec3f = 2. * cross(q.xyz, v);
     // return q.w * (q.w * v + t) + cross(q.xyz, t);
-    
+
     // chatgpt gives this, and it works:
     let b: vec3f = 2.0 * cross(q.xyz, v);
     return v + q.w * b + cross(q.xyz, b);
+}
+
+// convert a 3x3 matrix into a quaternion. result will be a pure rotation.
+fn mat2q(m: mat3x3f) -> vec4f {
+    // "alternate method" vectorized from:
+    // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
+    let s:   f32 = 1.; // pow(determinant(m), 1. / 3.); // scaling of M
+    let m00: f32 = m[0][0];
+    let m11: f32 = m[1][1];
+    let m22: f32 = m[2][2];
+    let d: vec4f = vec4f(m00, m11, m22, s);
+    let A: mat4x4f = mat4x4f(
+        vec4f( 1,  1,  1, 1), // q.x coeffs
+        vec4f( 1, -1, -1, 1), // q.y
+        vec4f(-1,  1, -1, 1), // ...
+        vec4f(-1, -1,  1, 1)
+    );
+    var q: vec4f = d * A;
+    q   = sqrt(max(q, vec4f(0))) / 2.;
+    q.x = abs(q.x) * sign(m[1][2] - m[2][1]);
+    q.y = abs(q.y) * sign(m[2][0] - m[0][2]);
+    q.z = abs(q.z) * sign(m[0][1] - m[1][0]);
+    return normalize(q);
 }
 
 fn qvmat(q: vec4f) -> mat3x3f {
@@ -63,6 +86,8 @@ fn J_qvmult_dq(q: vec4f, pv: vec3f) -> mat3x4f {
     let Q: mat4x4f = qmat(qconj(qmult(p, q))) + qmat_T(qmult(p, qconj(q)));
     return mat3x4f(Q[0], Q[1], Q[2]);
 }
+
+fn mat_to_quat()
 
 // jacobian of a quaternion rotation with respect to the point.
 // the same as a quaternion rotation matrix for q.

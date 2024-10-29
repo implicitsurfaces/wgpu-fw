@@ -61,3 +61,18 @@ fn sqrt_2x2(m: mat2x2f) -> mat2x2f {
         vec2f(0., sqrt(m[1][1] - b * b)),
     );
 }
+
+fn sqrt_3x3(m: mat3x3f) -> mat3x3f {
+    // cholesky decomposition
+    let a: f32 = sqrt(m[0][0]);
+    let b: f32 = m[0][1] / a;
+    let c: f32 = m[0][2] / a;
+    let d: f32 = m[1][1] - b * b;
+    let e: f32 = m[1][2] - b * c;
+    let sqrt_d = sqrt(d);
+    return mat3x3f(
+        vec3f(a, b, c),
+        vec3f(0., sqrt_d, e / sqrt_d),
+        vec3f(0., 0., sqrt(m[2][2] - c * c - e * e / d)),
+    );
+}
