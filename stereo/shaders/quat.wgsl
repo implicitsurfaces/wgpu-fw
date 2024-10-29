@@ -62,7 +62,7 @@ fn mat2q(m: mat3x3f) -> vec4f {
         vec4f( 1,  1,  1, 1), // q.x coeffs
         vec4f( 1, -1, -1, 1), // q.y
         vec4f(-1,  1, -1, 1), // ...
-        vec4f(-1, -1,  1, 1)
+        vec4f(-1, -1,  1, 1),
     );
     var q: vec4f = d * A;
     q   = sqrt(max(q, vec4f(0))) / 2.;
@@ -86,8 +86,6 @@ fn J_qvmult_dq(q: vec4f, pv: vec3f) -> mat3x4f {
     let Q: mat4x4f = qmat(qconj(qmult(p, q))) + qmat_T(qmult(p, qconj(q)));
     return mat3x4f(Q[0], Q[1], Q[2]);
 }
-
-fn mat_to_quat()
 
 // jacobian of a quaternion rotation with respect to the point.
 // the same as a quaternion rotation matrix for q.
