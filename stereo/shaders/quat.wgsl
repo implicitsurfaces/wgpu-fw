@@ -5,7 +5,6 @@ fn qconj(q: vec4f) -> vec4f {
     return vec4f(-q.xyz, q.w);
 }
 
-// this is correct
 fn qmult(q0: vec4f, q1: vec4f) -> vec4f {
     return vec4f(
         dot(q0.wxy, q1.xwz) - q0.z * q1.y,
@@ -44,7 +43,8 @@ fn qrot(q: vec4f, v: vec3f) -> vec3f {
     // let t: vec3f = 2. * cross(q.xyz, v);
     // return q.w * (q.w * v + t) + cross(q.xyz, t);
 
-    // chatgpt gives this, and it works:
+    // edit: WP has been corrected due to discussion raised by the above.
+    // this is the correct formula (which ChatGPT also figured out):
     let b: vec3f = 2.0 * cross(q.xyz, v);
     return v + q.w * b + cross(q.xyz, b);
 }

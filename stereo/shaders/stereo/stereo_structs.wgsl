@@ -1,4 +1,4 @@
-// structs.wgsl
+// stereo_structs.wgsl
 // common structs across multiple stages of stereo fusion
 
 struct FeatureRange {

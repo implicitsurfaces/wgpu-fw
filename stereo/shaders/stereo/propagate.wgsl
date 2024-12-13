@@ -1,6 +1,6 @@
-// #include "structs.wgsl"
-// #include "quat.wgsl"
-// #include "mat_helpers.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../quat.wgsl"
+// #include "../mat_helpers.wgsl"
 
 @group(0) @binding(0) var<storage, read> feature_idx_buffer:     array<u32>;
 @group(1) @binding(0) var<storage, read> src_parent_nodes:       array<TreeNode>;

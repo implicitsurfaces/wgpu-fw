@@ -1,5 +1,5 @@
-// #include "structs.wgsl"
-// #include "mat_helpers.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../mat_helpers.wgsl"
 
 const Tau: f32 = 6.283185307179586;
 

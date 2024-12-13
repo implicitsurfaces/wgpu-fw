@@ -2,8 +2,8 @@
 // Shader to correlate two windows of samples and accumulate the result
 // to a running correlogram.
 
-// #include "dft.wgsl"
-// #include "structs.wgsl"
+// #include "../dft.wgsl"
+// #include "stereo_structs.wgsl"
 
 // todo: should we keep the log of the magnitude for better precision?
 

@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
         std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
         std::cout << "Options:" << std::endl;
         std::cout << "  --kernels           : view the kernels" << std::endl;
-        std::cout << "  --source            : specify stream source {single, dual, split} "
+        std::cout << "  --source            : specify stream source {single, dual, split, virtual} "
             "(default single)" << std::endl;
         std::cout << "  --no-swap           : do not swap buffers" << std::endl;
         std::cout << "  --render-depth <n>  : render the specified mip level" << std::endl;
@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
         } break;
     }
 
-    Visualizer* viewer = new Visualizer{
+    Visualizer* viewer = new Visualizer {
         solver,
         {feed_0, feed_1},
         x_tiles,

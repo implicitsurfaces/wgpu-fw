@@ -1,5 +1,5 @@
-// #include "structs.wgsl"
-// #include "kalman.wgsl"
+// #include "../kalman.wgsl"
+// #include "stereo_structs.wgsl"
 // #include "camera.wgsl"
 
 // todo: could do basis-conditioning steps on both parent and child;

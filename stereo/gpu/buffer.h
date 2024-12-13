@@ -109,9 +109,14 @@ public:
         return _buffer;
     }
 
-    void submit_write(const T* data, range1i range) {
+    void submit_write(const T* data, range1i dst_range) {
         wgpu::Queue q = _device.getQueue();
-        q.writeBuffer(_buffer, range.lo * sizeof(T), data, range.dimensions() * sizeof(T));
+        q.writeBuffer(
+            _buffer,
+            dst_range.lo * sizeof(T),
+            data,
+            dst_range.dimensions() * sizeof(T)
+        );
         q.release();
     }
 
@@ -151,6 +156,10 @@ public:
 
     gpu_size_t offset_of(gpu_size_t index) const {
         return index * sizeof(T);
+    }
+    
+    operator bool() const {
+        return _buffer != nullptr;
     }
 
 };

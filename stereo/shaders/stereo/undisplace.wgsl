@@ -1,4 +1,4 @@
-// #include "structs.wgsl"
+// #include "stereo_structs.wgsl"
 
 @group(0) @binding(0) var<storage,read_write> img_features: array<FeaturePair>;
 @group(0) @binding(1) var<storage,read>       dx_array:     array<DebugFeature2D>;

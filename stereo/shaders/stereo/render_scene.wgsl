@@ -1,5 +1,5 @@
 // #include "camera.wgsl"
-// #include "inverse.wgsl"
+// #include "../inverse.wgsl"
 
 struct Vert {
     @location(0) p:  vec3f,

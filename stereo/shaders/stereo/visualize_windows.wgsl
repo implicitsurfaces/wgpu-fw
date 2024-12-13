@@ -1,6 +1,6 @@
-// #include "structs.wgsl"
-// #include "sample.wgsl"
-// #include "mat_helpers.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../sample.wgsl"
+// #include "../mat_helpers.wgsl"
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,

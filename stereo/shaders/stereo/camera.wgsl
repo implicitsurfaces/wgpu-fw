@@ -1,6 +1,6 @@
-// #include "structs.wgsl"
-// #include "kalman.wgsl"
-// #include "quat.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../kalman.wgsl"
+// #include "../quat.wgsl"
 
 // todo: account for lens distortion.
 //   best way to do this:

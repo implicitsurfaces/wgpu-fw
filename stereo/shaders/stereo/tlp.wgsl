@@ -1,5 +1,5 @@
-// #include "structs.wgsl"
-// #include "mat_helpers.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../mat_helpers.wgsl"
 
 // top-level predict shader
 

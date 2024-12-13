@@ -1,4 +1,4 @@
-// #include "structs.wgsl"
+// #include "stereo_structs.wgsl"
 
 struct SamplePtUniforms {
     samples_per_feature: u32,

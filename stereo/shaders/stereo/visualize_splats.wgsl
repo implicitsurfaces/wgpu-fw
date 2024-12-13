@@ -1,6 +1,6 @@
-// #include "structs.wgsl"
+// #include "stereo_structs.wgsl"
 // #include "camera.wgsl"
-// #include "mat_helpers.wgsl"
+// #include "../mat_helpers.wgsl"
 
 struct VertexOut {
     @builtin(position) p:  vec4f,

@@ -1,4 +1,4 @@
-// #include "structs.wgsl"
+// #include "stereo_structs.wgsl"
 // #include "camera.wgsl"
 
 struct VertexOutput {

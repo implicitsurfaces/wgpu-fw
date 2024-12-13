@@ -1,5 +1,5 @@
-// #include "structs.wgsl"
-// #include "kalman.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../kalman.wgsl"
 
 // nb: different bindgroups each!
 @group(0) @binding(0) var<uniform>            feature_range:       FeatureRange;

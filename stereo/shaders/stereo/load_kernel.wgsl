@@ -1,4 +1,4 @@
-// #include "structs.wgsl"
+// #include "stereo_structs.wgsl"
 
 // sample the window around each feature in a pair
 

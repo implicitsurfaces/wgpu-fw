@@ -134,7 +134,7 @@ void Filter3x3::_release() {
 }
 
 void Filter3x3::_init() {
-    wgpu::ShaderModule shader = shader_from_file(_device, "resource/shaders/filter3x3.wgsl");
+    wgpu::ShaderModule shader = shader_from_file(_device, "resource/shaders/stereo/filter3x3.wgsl");
 
     if (shader == nullptr) {
         std::cerr << "Failed to load filter3x3 shader" << std::endl;

@@ -1,7 +1,7 @@
-// #include "structs.wgsl"
-// #include "sample.wgsl"
-// #include "inverse.wgsl"
-// #include "mat_helpers.wgsl"
+// #include "stereo_structs.wgsl"
+// #include "../sample.wgsl"
+// #include "../inverse.wgsl"
+// #include "../mat_helpers.wgsl"
 
 // todo: quality estimate
 // todo: figure out how to estimate an update to the feature bases
