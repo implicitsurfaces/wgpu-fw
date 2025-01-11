@@ -1,3 +1,4 @@
+#include "webgpu/webgpu.h"
 #include <stereo/sdf/sdf_eval.h>
 #include <stereo/gpu/shader.h>
 
@@ -227,14 +228,19 @@ std::pair<gpu_size_t, gpu_size_t> SdfEvaluator::_prepare_ranges(
     return {samples, n_variations};
 }
 
+// so we can render SDFs too:
+constexpr WGPUShaderStageFlags BothStages = 
+      wgpu::ShaderStage::Compute
+    | wgpu::ShaderStage::Fragment;
+
 SdfEvaluator::SdfEvaluator(wgpu::Device device):
     _device(device),
     _expr_layout {
         _device,
         {
-            compute_r_buffer_layout<SdfGpuOp>(0),
-            compute_r_buffer_layout<float>(1),
-            compute_r_buffer_layout<float>(2),
+            storage_buffer_layout<SdfGpuOp>(0, BufferTarget::Read, BothStages),
+            storage_buffer_layout<float>(1, BufferTarget::Read, BothStages),
+            storage_buffer_layout<float>(2, BufferTarget::Read, BothStages),
         },
         "SDF expression bindgroup layout",
     },

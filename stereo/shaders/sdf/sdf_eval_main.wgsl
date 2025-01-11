@@ -56,11 +56,25 @@ fn main(
         sdf_pts_dx[pt_index.dx_offset],
     );
     
-    let domain: SdfDomain = SdfDomain(
+    let x: SdfDomain = SdfDomain(
         p,
         dm3_identity(),
     );
-    let result: SdfContext = sdf_eval(param_index, domain);
+    let result: SdfContext = sdf_eval(param_index, x);
+    
+    // let result = SdfContext(
+    //     x,
+    //     sdf_union(
+    //         sdf_sphere(
+    //             SphereD(DualV3(vec3f(-1., 0., 0.), vec3f()), Dual(1., 0.)),
+    //             x
+    //         ),
+    //         sdf_sphere(
+    //             SphereD(DualV3(vec3f( 1., 0., 0.), vec3f()), Dual(1., 0.)),
+    //             x
+    //         ),
+    //     )
+    // );
     
     // compute the final index
     let threads_per_workgroup: u32 = wg_size.x * wg_size.y * wg_size.z;

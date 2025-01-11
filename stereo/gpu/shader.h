@@ -19,6 +19,22 @@ wgpu::ComputePipeline create_compute_pipeline(
         const char*           label,
         std::initializer_list<wgpu::ConstantEntry> constants = {});
 
+template <typename T>
+wgpu::BindGroupLayoutEntry storage_buffer_layout(
+        gpu_size_t binding,
+        BufferTarget rw,
+        WGPUShaderStageFlags stages=wgpu::ShaderStage::Compute)
+{
+    wgpu::BindGroupLayoutEntry entry = wgpu::Default;
+    entry.binding     = binding;
+    entry.visibility  = stages;
+    entry.buffer.type = 
+            rw == BufferTarget::Read
+            ? wgpu::BufferBindingType::ReadOnlyStorage
+            : wgpu::BufferBindingType::Storage;
+    entry.buffer.minBindingSize = sizeof(T);
+    return entry;
+}
 
 template <typename T>
 wgpu::BindGroupLayoutEntry compute_r_buffer_layout(gpu_size_t binding) {

@@ -13,10 +13,10 @@ rebuild compile_commands.json (if IDE language server is haywire):
 requirements:
 
   - geomc
-  - behold
   - wgpu-native
   - wgpu c++ header
   - scons
-  - numpy
-  - scipy
-
+  
+  for camera calibration:
+    - numpy
+    - scipy

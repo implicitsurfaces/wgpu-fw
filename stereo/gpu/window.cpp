@@ -8,10 +8,11 @@
 
 namespace stereo {
 
-Window::Window(wgpu::Instance instance, wgpu::Device device):
+Window::Window(wgpu::Instance instance, wgpu::Device device, vec2u dims):
     instance(instance),
     device(device),
-    queue(device.getQueue())
+    queue(device.getQueue()),
+    dims(dims)
 {
     instance.reference();
     device.reference();
@@ -28,12 +29,12 @@ Window::~Window() {
 }
 
 void Window::init() {
-    int w = 1920 * 1.5;
-    int h = 1080 * 1.5;
+    int w = dims.x;
+    int h = dims.y;
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // todo: allow resize
-    window  = glfwCreateWindow(w / 2, h / 2, "Stereo", nullptr, nullptr);
+    window  = glfwCreateWindow(dims.x / 2, dims.y / 2, "WGPU App", nullptr, nullptr);
     surface = glfwGetWGPUSurface(instance, window);
     wgpu::RequestAdapterOptions opts;
     opts.compatibleSurface = surface;

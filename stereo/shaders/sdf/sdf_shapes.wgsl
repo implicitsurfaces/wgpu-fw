@@ -2,7 +2,7 @@
 
 fn sdf_sphere(sphere: SphereD, d: SdfDomain) -> SdfRange {
     let r: DualV3 = dv3_sub(d.p, sphere.center);
-    let f: Dual   = dv3_length(r);
+    let f: Dual   = d_sub(dv3_length(r), sphere.radius);
     let n: DualV3 = dv3_divd(r, f);
     return SdfRange(f, n);
 }

@@ -1,11 +1,16 @@
+#include "GLFW/glfw3.h"
 #include "webgpu/wgpu.h"
+#include <thread>
 
 #include <geomc/shape/Sphere.h>
 
 #include <stereo/gpu/window.h>
-#include <stereo/sdf/sdf_eval.h>
+#include <stereo/sdf/visualize_sdf.h>
 
 using namespace stereo;
+
+using dualf = Dual<float>;
+using sphere3e = Sphere<dualf,3>;
 
 bool g_app_error = false;
 
@@ -51,14 +56,10 @@ static wgpu::Device _create_device(wgpu::Instance instance) {
     return device;
 }
 
-int main(int argc, char** argv) {
-    wgpu::Instance instance = wgpu::createInstance(wgpu::InstanceDescriptor{});
-    if (not instance) {
-        std::cerr << "Could not acquire a WebGPU instance." << std::endl;
-        std::abort();
-    }
-    wgpu::Device device = _create_device(instance);
-    
+auto g_finish = std::chrono::high_resolution_clock::now();
+bool g_done = false;
+
+void run_compute(wgpu::Device device) {
     // sdf context
     gpu_size_t w = 1024;
     gpu_size_t n_samples = w * w;
@@ -87,12 +88,64 @@ int main(int argc, char** argv) {
     while (not g_app_error and c++ < 100) {
         glfwPollEvents();
         
+        if (c == 100) {
+            std::cout << "last cycle\n";
+            wgpuQueueOnSubmittedWorkDone(
+                device.getQueue(),
+                [](WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata) {
+                    g_finish = std::chrono::high_resolution_clock::now();
+                    g_done = true;
+                    std::cout << "Work done: " << status << std::endl;
+                },
+                nullptr
+            );
+        }
         output = sdf_eval.evaluate(expr, input, 1, ParamVariation::VaryDerivative, output);
         
         WGPUWrappedSubmissionIndex idx;
         wgpuDevicePoll(device, false, &idx);
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // auto end = std::chrono::high_resolution_clock::now();
+    while (not g_done) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(g_finish - start).count();
     std::cout << "Time: " << dt << "ms" << std::endl;
+}
+
+void run_visualizer(wgpu::Device device, wgpu::Instance instance) {
+    SdfNodeRef<dualf> sdf = std::make_shared<SdfUnion<dualf>>(
+        std::make_shared<SdfSphere<dualf>>(sphere3e({-1., 0., 0.}, 1.)),
+        std::make_shared<SdfSphere<dualf>>(sphere3e({ 1., 0., 0.}, 1.))
+    );
+    VisualizeSdf sdf_vis {instance, device, sdf};
+    auto last_frame_end = std::chrono::high_resolution_clock::now();
+    while (not glfwWindowShouldClose(sdf_vis.window()->window) and not g_app_error) {
+        glfwPollEvents();
+        
+        sdf_vis.do_frame();
+        
+        // allow for async events to be processed
+        WGPUWrappedSubmissionIndex idx;
+        wgpuDevicePoll(device, false, &idx);
+        
+        // track framerate
+        auto now = std::chrono::high_resolution_clock::now();
+        auto elapsed_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_frame_end).count();
+        std::cout << "fps: " << 1000. / elapsed_ms << "\r" << std::flush;
+        last_frame_end = now;
+    }
+    std::cout << (g_app_error ? "aborted" : "finished") << std::endl;
+}
+
+int main(int argc, char** argv) {
+    wgpu::Instance instance = wgpu::createInstance(wgpu::InstanceDescriptor{});
+    if (not instance) {
+        std::cerr << "Could not acquire a WebGPU instance." << std::endl;
+        std::abort();
+    }
+    wgpu::Device device = _create_device(instance);
+    run_visualizer(device, instance);
+    
 }

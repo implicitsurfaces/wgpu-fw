@@ -14,6 +14,11 @@ enum struct BufferKind {
     Index,
 };
 
+enum struct BufferTarget {
+    Read,
+    Write
+};
+
 template <typename T>
 struct DataBuffer {
 private:

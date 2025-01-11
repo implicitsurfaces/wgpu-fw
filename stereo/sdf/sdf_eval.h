@@ -79,14 +79,8 @@ private:
     friend class SdfGpuExpr;
     friend class SdfInput;
     friend class SdfOutput;
-
+    
 protected:
-    
-    BindGroupLayout& expr_layout()     { return _expr_layout;    }
-    BindGroupLayout& samples_layout()  { return _samples_layout; }
-    BindGroupLayout& output_layout()   { return _output_layout;  }
-    BindGroupLayout& offsets_layout()  { return _offsets_layout;  }
-    
     // return the sample count (x) by parameter variation count (y)
     std::pair<gpu_size_t, gpu_size_t> _prepare_ranges(
         gpu_size_t samples,
@@ -107,6 +101,11 @@ public:
         ParamVariation variation_scheme=ParamVariation::VaryDerivative,
         SdfOutputRef output=nullptr
     );
+    
+    BindGroupLayout& expr_layout()     { return _expr_layout;    }
+    BindGroupLayout& samples_layout()  { return _samples_layout; }
+    BindGroupLayout& output_layout()   { return _output_layout;  }
+    BindGroupLayout& offsets_layout()  { return _offsets_layout;  }
     
 };
 

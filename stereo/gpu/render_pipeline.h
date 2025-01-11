@@ -86,6 +86,7 @@ struct RenderPipeline {
     void _release();
 
     wgpu::RenderPipeline pipeline() const;
+    operator wgpu::RenderPipeline() const { return pipeline(); }
 };
 
 } // namespace stereo
