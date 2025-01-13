@@ -1,6 +1,6 @@
 build with scons:
 
-    scons --opencv -j8
+    scons
 
 run:
 
@@ -8,7 +8,7 @@ run:
 
 rebuild compile_commands.json (if IDE language server is haywire):
 
-    scons --opencv -j8 compile_commands.json
+    scons compile_commands.json
 
 requirements:
 
@@ -16,7 +16,4 @@ requirements:
   - wgpu-native
   - wgpu c++ header
   - scons
-  
-  for camera calibration:
-    - numpy
-    - scipy
+
