@@ -192,7 +192,7 @@ else:
         prog_target   = f'#/bin/{prog_name}'
         prog = env.Program(prog_target, source=[p, *obj_sources])
         programs.append(prog)
-        if prog_name == 'app':
+        if prog_name == 'sdf':
             t = prog # uhhhhhhhh
 
 # install shader files
