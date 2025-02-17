@@ -17,23 +17,25 @@ Texture::Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range):
 
 Texture::Texture(
         wgpu::Device device,
-        vec2u size,
+        vec2ui size,
         wgpu::TextureFormat format,
         const char* label,
-        wgpu::TextureUsageFlags usage):
+        wgpu::TextureUsageFlags usage,
+        std::optional<gpu_size_t> mip_levels):
     _device(device)
 {
+    gpu_size_t max_mip_level = std::bit_width(std::max(size.x, size.y));
     device.reference();
     wgpu::TextureDescriptor desc;
     desc.dimension       = wgpu::TextureDimension::_2D;
     desc.format          = format;
     desc.size            = {size.x, size.y, 1};
-    desc.mipLevelCount   = std::bit_width(std::max(size.x, size.y));
+    desc.mipLevelCount   = std::clamp<gpu_size_t>(mip_levels.value_or(max_mip_level), 1, max_mip_level);
     desc.sampleCount     = 1;
     desc.viewFormatCount = 0;
     desc.viewFormats     = nullptr;
     desc.usage           = usage;
-    desc.label = label;
+    desc.label           = label;
     _texture = device.createTexture(desc);
     _mip_range = {0, ((int)desc.mipLevelCount) - 1};
     _init();
@@ -186,14 +188,14 @@ gpu_size_t Texture::height() {
     return _texture != nullptr ? _texture.getHeight() : 0u;
 }
 
-void Texture::submit_write(uint8_t* data, gpu_size_t bytes_per_channel) {
-    uint32_t h = _texture.getHeight();
-    uint32_t w = _texture.getWidth();
+void Texture::submit_write(uint8_t* data, gpu_size_t bytes_per_channel, gpu_size_t mip_level) {
+    uint32_t h = _texture.getHeight() >> mip_level;
+    uint32_t w = _texture.getWidth()  >> mip_level;
     wgpu::ImageCopyTexture dst_texture;
     dst_texture.texture  = _texture;
     dst_texture.origin   = { 0, 0, 0 };
     dst_texture.aspect   = wgpu::TextureAspect::All;
-    dst_texture.mipLevel = 0;
+    dst_texture.mipLevel = mip_level;
 
     wgpu::TextureDataLayout src_layout;
     src_layout.offset       = 0;

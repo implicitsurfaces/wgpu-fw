@@ -1,4 +1,3 @@
-#include "webgpu/webgpu.h"
 #include <stereo/sdf/sdf_eval.h>
 #include <stereo/gpu/shader.h>
 

@@ -16,13 +16,14 @@ public:
     Texture(wgpu::Texture texture, wgpu::Device device, range1i mip_range=range1i::full);
     Texture(
         wgpu::Device device,
-        vec2u size,
+        vec2ui size,
         wgpu::TextureFormat format,
         const char* label="texture",
         wgpu::TextureUsageFlags usage=
             wgpu::TextureUsage::TextureBinding | // read from a shader
             wgpu::TextureUsage::CopyDst |        // upload input data
-            wgpu::TextureUsage::StorageBinding   // read/write from compute shader
+            wgpu::TextureUsage::StorageBinding,  // read/write from compute shader
+        std::optional<gpu_size_t> mip_levels=std::nullopt
     );
     Texture();
     Texture(const Texture&);
@@ -47,7 +48,7 @@ public:
     gpu_size_t        width();
     gpu_size_t        height();
 
-    void submit_write(uint8_t* data, gpu_size_t bytes_per_channel=4);
+    void submit_write(uint8_t* data, gpu_size_t bytes_per_channel=4, gpu_size_t mip_level=0);
 
 private:
 
@@ -55,5 +56,7 @@ private:
     void _release();
 
 };
+
+using TextureRef = std::shared_ptr<Texture>;
 
 }  // namespace stereo

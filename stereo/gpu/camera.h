@@ -127,7 +127,7 @@ struct Camera {
         }
         static_assert(
             std::variant_size_v<Projection> == 2,
-            "Expected two alternatives for variant size"
+            "Expected two alternatives for projection type"
         );
     }
 
@@ -143,7 +143,7 @@ struct Camera {
         }
         static_assert(
             std::variant_size_v<Projection> == 2,
-            "Expected two alternatives for variant size"
+            "Expected two alternatives for projection type"
         );
     }
 

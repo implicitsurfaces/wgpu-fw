@@ -53,7 +53,8 @@ extra_wasm_linkflags = {
 # no builtin recursive search :(
 obj_sources    = [Glob(f'{x}/*.cpp', exclude=[f'{x}/main.cpp']) for x in ['*', '*/*', '*/*/*']]
 prog_sources   = [*Glob('*.cpp'), *Glob('*/main.cpp')]
-shader_sources = Glob('shaders/**/*.wgsl')
+shader_sources = [Glob(f'shaders/{x}.wgsl') for x in ['*', '*/*', '*/*/*', '*/*/*/*']]
+shader_sources = list(itertools.chain(*shader_sources))
 shader_out_dir = data_out # `shaders/` gets appended from the src path
 
 indexes = []
@@ -113,11 +114,14 @@ def expand_includes(target, source, env, seen=None):
         seen = set()
     srcpath = source.srcnode().abspath
     dstpath = str(target)
-    incs    = extract_immediate_includes(srcpath)
+    
+    # If we've seen this file before, don't process it again
+    if srcpath in seen:
+        return
+    seen.add(srcpath)
+    
+    incs = extract_immediate_includes(srcpath)
     for i in incs:
-        if i in seen:
-            continue
-        seen.add(i)
         inc_source = env.File(i)
         # fully expand the include, recursively copying the contents of the
         # included files into the destination file, with the include
@@ -129,7 +133,7 @@ def expand_includes(target, source, env, seen=None):
         with open(srcpath, 'r') as src_f:
             dst_f.write(f"// expanded from `{srcpath}` {{\n")
             shutil.copyfileobj(src_f, dst_f)
-            dst_f.write(f"// }} end `{srcpath}` expansion\n")
+            dst_f.write(f"\n// }} end `{srcpath}` expansion\n")
 
 def WgslExpand(env, target, source):
     for t in target:
@@ -145,7 +149,7 @@ env.Append(BUILDERS={'WgslExpand' : wgsl_builder})
 
 for f in shader_sources:
     built_shader = env.File(os.path.join(shader_out_dir, str(f)))
-    print(f"defining built shader {str(built_shader)} from {str(f)}")
+    # print(f"defining built shader {str(built_shader)} from {str(f)}")
     evaluate_deps(built_shader, f, env)
     s = env.WgslExpand(target=built_shader, source=f)
     default_targets.append(s)

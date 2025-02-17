@@ -37,8 +37,24 @@ mat2gpu::mat2gpu(const mat2& m) {
         }
     }
 }
+mat2gpu::mat2gpu(const mat2d& m) {
+    for (int c = 0; c < 2; ++c) {
+        for (int r = 0; r < 2; ++r) {
+            cols[c][r] = m(r, c);
+        }
+    }
+}
 
 mat2gpu& mat2gpu::operator=(const mat2& other) {
+    for (int c = 0; c < 2; ++c) {
+        for (int r = 0; r < 2; ++r) {
+            cols[c][r] = other(r, c);
+        }
+    }
+    return *this;
+}
+
+mat2gpu& mat2gpu::operator=(const mat2d& other) {
     for (int c = 0; c < 2; ++c) {
         for (int r = 0; r < 2; ++r) {
             cols[c][r] = other(r, c);
@@ -100,8 +116,24 @@ mat4gpu::mat4gpu(const mat4& m) {
         }
     }
 }
+mat4gpu::mat4gpu(const mat4d& m) {
+    for (int c = 0; c < 4; ++c) {
+        for (int r = 0; r < 4; ++r) {
+            cols[c][r] = m(r, c);
+        }
+    }
+}
 
 mat4gpu& mat4gpu::operator=(const mat4& other) {
+    for (int c = 0; c < 4; ++c) {
+        for (int r = 0; r < 4; ++r) {
+            cols[c][r] = other(r, c);
+        }
+    }
+    return *this;
+}
+
+mat4gpu& mat4gpu::operator=(const mat4d& other) {
     for (int c = 0; c < 4; ++c) {
         for (int r = 0; r < 4; ++r) {
             cols[c][r] = other(r, c);

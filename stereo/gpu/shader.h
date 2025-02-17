@@ -1,6 +1,5 @@
 #pragma once
 
-#include "webgpu/webgpu.hpp"
 #include <stereo/gpu/bindgroup.h>
 #include <stereo/gpu/buffer.h>
 
@@ -60,7 +59,7 @@ template <typename T>
 wgpu::BindGroupLayoutEntry uniform_layout(
         gpu_size_t binding,
         bool has_dynamic_offset=false,
-        wgpu::ShaderStage extra_stages=wgpu::ShaderStage::None)
+        WGPUShaderStageFlags extra_stages=wgpu::ShaderStage::None)
 {
     wgpu::BindGroupLayoutEntry entry = wgpu::Default;
     entry.binding     = binding;
@@ -79,6 +78,11 @@ wgpu::BindGroupLayoutEntry sampler_layout(
 wgpu::BindGroupLayoutEntry texture_layout(
     gpu_size_t binding,
     wgpu::ShaderStage extra_stages=wgpu::ShaderStage::None
+);
+
+wgpu::BindGroupLayoutEntry texture_storage_layout(
+        gpu_size_t binding,
+        wgpu::ShaderStage extra_stages=wgpu::ShaderStage::None
 );
 
 template <typename T>

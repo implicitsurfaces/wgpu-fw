@@ -118,6 +118,7 @@ void run_visualizer(wgpu::Device device, wgpu::Instance instance) {
         std::make_shared<SdfSphere<dualf>>(sphere3e({-1., 0., 0.}, 1.)),
         std::make_shared<SdfSphere<dualf>>(sphere3e({ 1., 0., 0.}, 1.))
     );
+    glfwInit();
     VisualizeSdf sdf_vis {instance, device, sdf};
     auto last_frame_end = std::chrono::high_resolution_clock::now();
     while (not glfwWindowShouldClose(sdf_vis.window()->window) and not g_app_error) {

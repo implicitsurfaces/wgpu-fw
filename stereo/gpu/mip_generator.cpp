@@ -5,19 +5,39 @@
 namespace stereo {
 
 constexpr const char* MIP_SHADER_SRC = R"(
-@group(0) @binding(0) var previous_mip: texture_2d<f32>;
-@group(0) @binding(1) var current_mip:  texture_storage_2d<bgra8unorm,write>;
+struct MipUniforms {
+    src_gamma: f32,
+    dst_gamma: f32,
+}
+
+@group(0) @binding(0) var<uniform> mip_uniforms: MipUniforms;
+
+@group(1) @binding(0) var previousMipLevel: texture_2d<f32>;
+@group(1) @binding(1) var nextMipLevel: texture_storage_2d<rgba8unorm,write>;
 
 @compute @workgroup_size(8, 8)
 fn compute_mipmap(@builtin(global_invocation_id) id: vec3<u32>) {
     let offset = vec2<u32>(0u, 1u);
-    let color = (
-        textureLoad(previous_mip, 2u * id.xy + offset.xx, 0) +
-        textureLoad(previous_mip, 2u * id.xy + offset.xy, 0) +
-        textureLoad(previous_mip, 2u * id.xy + offset.yx, 0) +
-        textureLoad(previous_mip, 2u * id.xy + offset.yy, 0)
+    let decode_gamma = vec4f(vec3f(     mip_uniforms.src_gamma), 1.);
+    let encode_gamma = vec4f(vec3f(1. / mip_uniforms.dst_gamma), 1.);
+    var samples: array<vec4f, 4> = array<vec4f, 4>(
+        textureLoad(previousMipLevel, 2u * id.xy + offset.xx, 0),
+        textureLoad(previousMipLevel, 2u * id.xy + offset.xy, 0),
+        textureLoad(previousMipLevel, 2u * id.xy + offset.yx, 0),
+        textureLoad(previousMipLevel, 2u * id.xy + offset.yy, 0),
+    );
+    if (mip_uniforms.src_gamma != 1.) {
+        for (var i: u32 = 0u; i < 4u; i = i + 1u) {
+            samples[i] = pow(samples[i], decode_gamma);
+        }
+    }
+    var color = (
+        samples[0] + samples[1] + samples[2] + samples[3]
     ) * 0.25;
-    textureStore(current_mip, id.xy, color);
+    if (mip_uniforms.dst_gamma != 1.) {
+        color = pow(color, encode_gamma);
+    }
+    textureStore(nextMipLevel, id.xy, color);
 }
 )";
 
@@ -28,7 +48,7 @@ fn compute_mipmap(@builtin(global_invocation_id) id: vec3<u32>) {
 
 MipTexture::MipTexture(
         MipGeneratorRef gen,
-        vec2u size,
+        vec2ui size,
         wgpu::TextureFormat format,
         std::string_view label,
         wgpu::TextureUsage extra_usage):
@@ -69,14 +89,14 @@ void MipTexture::_init() {
         mip_entries[1].textureView = texture.view_for_mip(level);
 
         wgpu::BindGroupDescriptor bgd;
-        bgd.layout     = generator->_bind_group_layout;
+        bgd.layout     = generator->_levels_layout;
         bgd.entryCount = 2;
         bgd.entries    = (WGPUBindGroupEntry*) mip_entries;
         bind_groups.push_back(texture.device().createBindGroup(bgd));
     }
 }
 
-void MipTexture::generate() {
+void MipTexture::generate(float src_gamma, float dst_gamma) {
     wgpu::Queue queue = texture.device().getQueue();
 
     // construct the mipmap processing pass
@@ -86,11 +106,18 @@ void MipTexture::generate() {
     wgpu::ComputePassDescriptor compute_pass_descriptor;
     wgpu::ComputePassEncoder compute_pass = encoder.beginComputePass(compute_pass_descriptor);
     compute_pass.setPipeline(generator->_pipeline);
+    
+    UniformBox<MipGenerator::MipUniforms> uniforms = MipGenerator::MipUniforms {
+        .src_gamma = src_gamma,
+        .dst_gamma = dst_gamma,
+    };
+    generator->_uniform_buffer.submit_write(uniforms, 0);
 
     uint32_t res_x = texture.texture().getWidth();
     uint32_t res_y = texture.texture().getHeight();
+    compute_pass.setBindGroup(0, generator->_uniforms_binding, 0, nullptr);
     for (size_t level = 1; level < texture.texture().getMipLevelCount(); ++level) {
-        compute_pass.setBindGroup(0, bind_groups[level - 1], 0, nullptr);
+        compute_pass.setBindGroup(1, bind_groups[level - 1], 0, nullptr);
         uint32_t invocations_x = res_x >> level;
         uint32_t invocations_y = res_y >> level;
         uint32_t bucket_xy     = 8;
@@ -112,48 +139,45 @@ void MipTexture::generate() {
  ***********************/
 
 MipGenerator::MipGenerator(wgpu::Device device):
-    _device(device)
+    _device(device),
+    _uniform_buffer(device, 1, BufferKind::Uniform),
+    _uniforms_layout {
+        device,
+        {
+            uniform_layout<UniformBox<MipUniforms>>(0, false)
+        },
+        "mip uniforms layout"
+    },
+    _levels_layout {
+        device,
+        {
+            // input image: mip level N
+            texture_layout(0),
+            // output image: mip level N + 1
+            texture_storage_layout(1),
+        },
+        "mip levels layout"
+    },
+    _uniforms_binding {
+        device,
+        _uniforms_layout,
+        {
+            buffer_entry(0, _uniform_buffer, 1),
+        },
+        "mip uniforms binding"
+    }
 {
     _device.reference();
-    _init();
-}
-
-MipGenerator::~MipGenerator() {
-    _release();
-    _device.release();
-}
-
-void MipGenerator::_init() {
-    // init bind group layout
-    // input image: mip level N
-    wgpu::BindGroupLayoutEntry mip_entries[2];
-    mip_entries[0].binding               = 0;
-    mip_entries[0].texture.sampleType    = wgpu::TextureSampleType::Float;
-    mip_entries[0].texture.viewDimension = wgpu::TextureViewDimension::_2D;
-    mip_entries[0].visibility            = wgpu::ShaderStage::Compute;
-
-    // output image: mip level N + 1
-    mip_entries[1].binding               = 1;
-    mip_entries[1].storageTexture.access = wgpu::StorageTextureAccess::WriteOnly;
-    mip_entries[1].storageTexture.format = wgpu::TextureFormat::BGRA8Unorm;
-    mip_entries[1].storageTexture.viewDimension = wgpu::TextureViewDimension::_2D;
-    mip_entries[1].visibility            = wgpu::ShaderStage::Compute;
-
-    wgpu::BindGroupLayoutDescriptor layout_descriptor;
-    layout_descriptor.entryCount = 2;
-    layout_descriptor.entries    = mip_entries;
-    _bind_group_layout = _device.createBindGroupLayout(layout_descriptor);
-
     // load the shader + build its pipeline
     wgpu::ShaderModule compute_shader_module = shader_from_str(
         _device,
         MIP_SHADER_SRC,
         "mipmap shader"
     );
-
+    WGPUBindGroupLayout layouts[2] = { _uniforms_layout, _levels_layout };
     wgpu::PipelineLayoutDescriptor pipeline_layout_descriptor;
-    pipeline_layout_descriptor.bindGroupLayoutCount = 1;
-    pipeline_layout_descriptor.bindGroupLayouts     = (WGPUBindGroupLayout*) &_bind_group_layout;
+    pipeline_layout_descriptor.bindGroupLayoutCount = 2;
+    pipeline_layout_descriptor.bindGroupLayouts     = (WGPUBindGroupLayout*) layouts;
     wgpu::PipelineLayout pipeline_layout = _device.createPipelineLayout(pipeline_layout_descriptor);
 
     wgpu::ComputePipelineDescriptor cpd;
@@ -166,13 +190,77 @@ void MipGenerator::_init() {
     _pipeline = _device.createComputePipeline(cpd);
 }
 
-void MipGenerator::_release() {
-    _bind_group_layout.release();
+MipGenerator::~MipGenerator() {
     _pipeline.release();
+    _device.release();
 }
 
 wgpu::Device MipGenerator::get_device() {
     return _device;
+}
+
+
+void generate_mips(MipGeneratorRef generator, Texture& tex) {
+    wgpu::Queue queue = tex.device().getQueue();
+    wgpu::TextureFormat src_format = tex.texture().getFormat();
+    wgpu::TextureFormat dst_format = wgpu::TextureFormat::RGBA8Unorm;
+    float src_gamma = 1.f;
+    if (src_format == wgpu::TextureFormat::RGBA32Float) {
+        dst_format = wgpu::TextureFormat::RGBA32Float;
+    } else if (src_format == wgpu::TextureFormat::Depth32Float) {
+        dst_format = wgpu::TextureFormat::Depth32Float;
+    } else if (src_format == wgpu::TextureFormat::BGRA8UnormSrgb or
+        src_format == wgpu::TextureFormat::RGBA8UnormSrgb)
+    {
+        // src image needs to be linearized before downsampling,
+        // and gamma'd before write
+        src_gamma = 2.2f;
+    }
+    MipTexture mip_tex {
+        generator,
+        {tex.width(), tex.height()},
+        dst_format,
+        "mip generator temporary texture",
+        wgpu::TextureUsage::CopySrc,
+    };
+    auto src_range = tex.mip_range();
+    
+    // copy data from the source texture to the first mip level
+    wgpu::CommandEncoder base_copy_encoder = tex.device().createCommandEncoder(wgpu::Default);
+    wgpu::ImageCopyTexture src;
+    wgpu::ImageCopyTexture dst;
+    src.texture  = tex.texture();
+    src.aspect   = wgpu::TextureAspect::All;
+    src.mipLevel = src_range.lo;
+    src.origin   = {0, 0, 0};
+    
+    dst.texture  = mip_tex.texture.texture();
+    dst.aspect   = wgpu::TextureAspect::All;
+    dst.mipLevel = 0;
+    dst.origin   = {0, 0, 0};
+    base_copy_encoder.copyTextureToTexture(src, dst, {tex.width(), tex.height(), 1});
+    wgpu::CommandBuffer commands = base_copy_encoder.finish(wgpu::Default);
+    queue.submit(commands);
+    base_copy_encoder.release();
+    
+    // generate the mips
+    mip_tex.generate(src_gamma, src_gamma);
+    
+    // copy the mips back to the original texture
+    wgpu::CommandEncoder copy_back_encoder = tex.device().createCommandEncoder(wgpu::Default);
+    src.texture = mip_tex.texture.texture();
+    dst.texture = tex.texture();
+    for (int level = std::max(1, src_range.lo); level < src_range.hi; ++level) {
+        gpu_size_t w = tex.width()  >> level;
+        gpu_size_t h = tex.height() >> level;
+        src.mipLevel = level;
+        dst.mipLevel = level;
+        copy_back_encoder.copyTextureToTexture(src, dst, {w, h, 1});
+    }
+    commands = copy_back_encoder.finish(wgpu::Default);
+    queue.submit(commands);
+    copy_back_encoder.release();
+    queue.release();
 }
 
 }  // namespace stereo

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stereo/defs.h>
+#include <stereo/gpu/vertex_format.h>
 
 // todo: very few overrides for settings exposed now,
 //   but we should add this as needed (e.g. with a Settings class having

@@ -7,7 +7,7 @@ VisualizeSdf::VisualizeSdf(
         wgpu::Instance instance,
         wgpu::Device device,
         SdfNodeRef<Dual<float>> expr):
-    _window(instance, device, vec2u(2048, 2048)),
+    _window(instance, device, vec2ui(2048, 2048)),
     _sdf_eval(device),
     _sdf_expr(_sdf_eval, expr),
     _device(device),

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "stereo/gpu/uniform.h"
 #include <geomc/linalg/Quaternion.h>
 
 #include <stereo/sdf/sdf_structs.h>
+#include <stereo/gpu/uniform.h>
 #include <stereo/gpu/bindgroup.h>
 #include <stereo/gpu/buffer.h>
 
