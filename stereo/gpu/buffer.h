@@ -1,6 +1,5 @@
 #pragma once
 
-#include "webgpu/webgpu.h"
 #include <geomc/linalg/Matrix.h>
 #include <stereo/defs.h>
 
@@ -24,7 +23,7 @@ struct DataBuffer {
 private:
     wgpu::Device _device = nullptr;
     wgpu::Buffer _buffer = nullptr;
-    gpu_size_t     _size;
+    gpu_size_t   _size;
 
     void _release() {
         if (_buffer) _buffer.release();
@@ -43,6 +42,7 @@ public:
             _device(device),
             _size(size)
     {
+        _device.reference();
         wgpu::BufferDescriptor buffer_bd;
         buffer_bd.size = sizeof(T) * _size;
         switch (kind) {
@@ -94,12 +94,12 @@ public:
     }
 
     DataBuffer& operator=(const DataBuffer& other) {
+        if (other._device) other._device.reference();
+        if (other._buffer) other._buffer.reference();
         _release();
         _device = other._device;
         _buffer = other._buffer;
         _size   = other._size;
-        if (_device) _device.reference();
-        if (_buffer) _buffer.reference();
         return *this;
     }
 

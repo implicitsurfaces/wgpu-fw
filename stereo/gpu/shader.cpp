@@ -115,6 +115,19 @@ wgpu::BindGroupLayoutEntry texture_layout(
     return entry;
 }
 
+wgpu::BindGroupLayoutEntry texture_storage_layout(
+        gpu_size_t binding,
+        wgpu::ShaderStage extra_stages)
+{
+    wgpu::BindGroupLayoutEntry entry = wgpu::Default;
+    entry.binding               = binding;
+    entry.visibility            = wgpu::ShaderStage::Compute | extra_stages;
+    entry.storageTexture.access = wgpu::StorageTextureAccess::WriteOnly;
+    entry.storageTexture.format = wgpu::TextureFormat::RGBA8Unorm;
+    entry.storageTexture.viewDimension = wgpu::TextureViewDimension::_2D;
+    return entry;
+}
+
 wgpu::BindGroupEntry sampler_entry(gpu_size_t binding, wgpu::Sampler sampler) {
     wgpu::BindGroupEntry entry = wgpu::Default;
     entry.binding = binding;

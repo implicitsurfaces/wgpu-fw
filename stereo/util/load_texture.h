@@ -6,7 +6,7 @@ namespace stereo {
 
 struct Image {
     std::shared_ptr<uint8_t[]> data = nullptr;
-    vec2u size     = {0, 0};
+    vec2ui size     = {0, 0};
     int   channels =  0;
 };
 

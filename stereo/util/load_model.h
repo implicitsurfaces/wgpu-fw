@@ -1,6 +1,5 @@
 #pragma once
 
-#include "stereo/type_defs.h"
 #include <stereo/gpu/model.h>
 
 namespace stereo {

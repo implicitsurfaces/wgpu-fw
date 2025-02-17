@@ -43,8 +43,10 @@ struct alignas(8) mat2gpu {
     
     mat2gpu();
     mat2gpu(const mat2& m);
+    mat2gpu(const mat2d& m);
     
     mat2gpu& operator=(const mat2& other);
+    mat2gpu& operator=(const mat2d& other);
     operator mat2() const;
 };
 
@@ -66,8 +68,10 @@ struct alignas(16) mat4gpu {
     
     mat4gpu();
     mat4gpu(const mat4& m);
+    mat4gpu(const mat4d& m);
     
     mat4gpu& operator=(const mat4& other);
+    mat4gpu& operator=(const mat4d& other);
     operator mat4() const;
 };
 

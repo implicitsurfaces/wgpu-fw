@@ -72,10 +72,15 @@ void RenderPipeline::_init(
     // define geometry type
     pl_dsc.primitive.topology  = _topology;
     pl_dsc.primitive.frontFace = wgpu::FrontFace::CCW;
-    pl_dsc.primitive.cullMode  = wgpu::CullMode::Back; // todo: expose this
+    pl_dsc.primitive.cullMode  = wgpu::CullMode::None; // todo: expose this
+    
+    wgpu::DepthStencilState depth_stencil = wgpu::Default;
+    depth_stencil.depthCompare       = wgpu::CompareFunction::Less;
+    depth_stencil.depthWriteEnabled  = true;
+    depth_stencil.format             = wgpu::TextureFormat::Depth24Plus;
 
     // depth and sampling
-    pl_dsc.depthStencil      = nullptr;
+    pl_dsc.depthStencil      = &depth_stencil;
     pl_dsc.multisample.count = 1;
     pl_dsc.multisample.mask  = ~0u;
     pl_dsc.multisample.alphaToCoverageEnabled = false;

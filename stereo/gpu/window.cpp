@@ -8,61 +8,125 @@
 
 namespace stereo {
 
-Window::Window(wgpu::Instance instance, wgpu::Device device, vec2u dims):
+static wgpu::TextureView _get_depth_view(Texture& tex) {
+    wgpu::TextureViewDescriptor depthTextureViewDesc;
+    depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
+    depthTextureViewDesc.baseArrayLayer  = 0;
+    depthTextureViewDesc.arrayLayerCount = 1;
+    depthTextureViewDesc.baseMipLevel    = 0;
+    depthTextureViewDesc.mipLevelCount   = 1;
+    depthTextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
+    depthTextureViewDesc.format = wgpu::TextureFormat::Depth24Plus;
+    return tex.texture().createView(depthTextureViewDesc);
+}
+
+void Window::_rebuild_depth_buffer() {
+    depth_buffer = Texture {
+        device,
+        surface_dims,
+        wgpu::TextureFormat::Depth24Plus,
+        "depth buffer",
+        wgpu::TextureUsage::RenderAttachment,
+        1 // only base mip level
+    },
+    depth_view = _get_depth_view(depth_buffer);
+}
+
+Window::Window(wgpu::Instance instance, wgpu::Device device, vec2ui dims):
     instance(instance),
     device(device),
     queue(device.getQueue()),
-    dims(dims)
+    window_dims(dims / 2),
+    surface_dims(dims),
+    input_manager(this)
 {
     instance.reference();
     device.reference();
-    init();
+    
+    int w = window_dims.x;
+    int h = window_dims.y;
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // todo: allow resize
+    window  = glfwCreateWindow(window_dims.x, window_dims.y, "WGPU App", nullptr, nullptr);
+    surface = glfwGetWGPUSurface(instance, window);
+    
+    configure_surface(dims);
+    
+    glfwSetWindowUserPointer(window, this);
 }
 
 Window::~Window() {
-    release();
-    if (instance) instance.release();
-    if (device)   device.release();
+    if (window) glfwSetWindowUserPointer(window, nullptr);
+    if (depth_view) depth_view.release();
+    if (surface)  {
+        surface.unconfigure();
+        surface.release();
+    }
     if (queue)    queue.release();
-    if (surface)  surface.release();
+    if (device)   device.release();
+    if (instance) instance.release();
     if (window)   glfwDestroyWindow(window);
 }
 
-void Window::init() {
-    int w = dims.x;
-    int h = dims.y;
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // todo: allow resize
-    window  = glfwCreateWindow(dims.x / 2, dims.y / 2, "WGPU App", nullptr, nullptr);
-    surface = glfwGetWGPUSurface(instance, window);
+void Window::configure_surface(vec2ui dims) {
     wgpu::RequestAdapterOptions opts;
     opts.compatibleSurface = surface;
     wgpu::Adapter adapter = instance.requestAdapter(opts);
-    wgpu::SurfaceConfiguration config;
     wgpu::SurfaceCapabilities caps;
     surface.getCapabilities(adapter, &caps);
-
-    config.width   = w;
-    config.height  = h;
+    
+    wgpu::SurfaceConfiguration config;
+    config.width   = surface_dims.x;
+    config.height  = surface_dims.y;
     config.usage   = wgpu::TextureUsage::RenderAttachment;
     surface_format = caps.formats[0];
     config.format  = surface_format;
-
+    
     config.viewFormatCount = 0;
     config.viewFormats     = nullptr;
     config.device          = device;
     config.presentMode     = wgpu::PresentMode::Fifo;
     config.alphaMode       = wgpu::CompositeAlphaMode::Auto;
-
+    
     surface.configure(config);
     adapter.release();
+    
+    _rebuild_depth_buffer();
 }
 
-void Window::release() {
-    if (surface) surface.unconfigure();
+vec2d Window::convert_window_coordinates(
+            vec2d coords,
+            CoordSpace from_coord,
+            CoordSpace to_coord) const
+{
+    // lo: bottom left | hi: top right
+    range2d r[2];
+    for (int i = 0; i < 2; ++i) {
+        switch (i == 0 ? from_coord : to_coord) {
+            case CoordSpace::WINDOW_COORDS:
+                r[i] = range2d(
+                    // bottom of the frame is +y
+                    {0, (double) window_dims.y}, 
+                    {(double) window_dims.x, 0});
+                break;
+            case CoordSpace::BUFFER_COORDS:
+                r[i] = range2d(
+                    // top of the frame is +y
+                    {0, 0},
+                    {(double) surface_dims.x, (double) surface_dims.y});
+                break;
+            case CoordSpace::ASPECT_COORDS: {
+                double h = window_dims.y / (double) window_dims.x;
+                r[i] = range2d({-1, -h / 2}, {1, h / 2});
+                break;
+            }
+            case CoordSpace::NDC_COORDS:
+                r[i] = range2d({-1, -1}, {1, 1});
+                break;
+        }
+    }
+    return r[1].remap(r[0].unmap(coords));
 }
-
 
 wgpu::TextureView Window::next_target() {
     // Get the surface texture
